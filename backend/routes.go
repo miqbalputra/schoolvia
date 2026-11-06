@@ -912,11 +912,12 @@ func handleCreateAgenda(w http.ResponseWriter, r *http.Request, c *Claims) {
 // ---------- JADWAL ----------
 
 func handleListJadwal(w http.ResponseWriter, r *http.Request) {
+	sid := userFromContext(r).SekolahID
 	q := `SELECT j.id, j.kelas, j.hari, j.jam_mulai::text, j.jam_selesai::text, j.mapel, COALESCE(u.nama,'-')
-		FROM jadwal j LEFT JOIN users u ON u.id=j.guru_id WHERE 1=1`
-	args := []interface{}{}
+		FROM jadwal j LEFT JOIN users u ON u.id=j.guru_id WHERE j.sekolah_id=$1`
+	args := []interface{}{sid}
 	if v := r.URL.Query().Get("kelas"); v != "" {
-		q += ` AND j.kelas=$1`
+		q += ` AND j.kelas=$2`
 		args = append(args, v)
 	}
 	q += ` ORDER BY ARRAY_POSITION(ARRAY['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'], j.hari), j.jam_mulai`
@@ -938,16 +939,24 @@ func handleListJadwal(w http.ResponseWriter, r *http.Request) {
 
 func handleCreateJadwal(w http.ResponseWriter, r *http.Request, c *Claims) {
 	var in struct {
-		Kelas, Hari, JamMulai, JamSelesai, Mapel string
-		GuruID                                   int
+		Kelas      string `json:"kelas"`
+		Hari       string `json:"hari"`
+		JamMulai   string `json:"jam_mulai"`
+		JamSelesai string `json:"jam_selesai"`
+		Mapel      string `json:"mapel"`
+		GuruID     int    `json:"guru_id"`
 	}
 	json.NewDecoder(r.Body).Decode(&in)
 	if in.Kelas == "" || in.Hari == "" || in.Mapel == "" {
 		jsonErr(w, 400, "Kelas, hari, dan mapel wajib")
 		return
 	}
-	_, err := db.Exec(`INSERT INTO jadwal (kelas,hari,jam_mulai,jam_selesai,mapel,guru_id) VALUES ($1,$2,$3,$4,$5,NULLIF($6,0))`,
-		in.Kelas, in.Hari, in.JamMulai, in.JamSelesai, in.Mapel, in.GuruID)
+	if in.JamMulai == "" || in.JamSelesai == "" {
+		jsonErr(w, 400, "Jam mulai dan jam selesai wajib (format HH:MM)")
+		return
+	}
+	_, err := db.Exec(`INSERT INTO jadwal (kelas,hari,jam_mulai,jam_selesai,mapel,guru_id,sekolah_id) VALUES ($1,$2,$3,$4,$5,NULLIF($6,0),$7)`,
+		in.Kelas, in.Hari, in.JamMulai, in.JamSelesai, in.Mapel, in.GuruID, c.SekolahID)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
 		return
