@@ -130,6 +130,8 @@ func migrate() error {
 			jumlah_default NUMERIC(12,2) DEFAULT 45000
 		)`,
 		`INSERT INTO spp_setting (id) VALUES (1) ON CONFLICT DO NOTHING`,
+		// SPP default kini per-sekolah: pengaturan.spp_default (migrasi 2026-11)
+		`ALTER TABLE pengaturan ADD COLUMN IF NOT EXISTS spp_default NUMERIC(12,2) NOT NULL DEFAULT 45000`,
 		`CREATE TABLE IF NOT EXISTS pengaturan (
 			id SERIAL PRIMARY KEY CHECK (id = 1),
 			nama_sekolah TEXT DEFAULT 'Griya Qur''an Tunas Ilmu',

@@ -454,8 +454,13 @@ func handleUpsertAbsensiSiswa(w http.ResponseWriter, r *http.Request, c *Claims)
 		in.Tanggal = today()
 	}
 	n := 0
+	// verifikasi sekali: semua siswa dalam batch harus milik sekolah yang sama
 	for _, it := range in.Items {
 		if it.Status == "" {
+			continue
+		}
+		var sid int
+		if err := db.QueryRow(`SELECT sekolah_id FROM siswa WHERE id=$1`, it.SiswaID).Scan(&sid); err != nil || sid != c.SekolahID {
 			continue
 		}
 		_, err := db.Exec(`INSERT INTO absensi_siswa (siswa_id,tanggal,status,keterangan,pencatat) VALUES ($1,$2,$3,NULLIF($4,''),$5)
@@ -704,7 +709,7 @@ func handleGenerateSPP(w http.ResponseWriter, r *http.Request, c *Claims) {
 		return
 	}
 	if in.Jumlah == 0 {
-		db.QueryRow(`SELECT jumlah_default FROM spp_setting WHERE id=1`).Scan(&in.Jumlah)
+		db.QueryRow(`SELECT COALESCE(spp_default,45000) FROM pengaturan WHERE id=$1`, c.SekolahID).Scan(&in.Jumlah)
 	}
 	rows, err := db.Query(`SELECT id FROM siswa WHERE status='aktif' AND sekolah_id=$1`, c.SekolahID)
 	if err != nil {
@@ -748,7 +753,7 @@ func handleBayarSPP(w http.ResponseWriter, r *http.Request, c *Claims) {
 	if in.Metode == "" {
 		in.Metode = "tunai"
 	}
-	_, err := db.Exec(`UPDATE spp SET status='lunas', tgl_bayar=CURRENT_DATE, metode=$1, petugas_id=$2 WHERE id=$3`, in.Metode, c.UserID, id)
+	_, err := db.Exec(`UPDATE spp SET status='lunas', tgl_bayar=CURRENT_DATE, metode=$1, petugas_id=$2 WHERE id=$3 AND sekolah_id=$4`, in.Metode, c.UserID, id, c.SekolahID)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
 		return
@@ -862,7 +867,7 @@ func handleCreatePengumuman(w http.ResponseWriter, r *http.Request, c *Claims) {
 
 func handleDeletePengumuman(w http.ResponseWriter, r *http.Request, c *Claims) {
 	id, _ := strconv.Atoi(r.PathValue("id"))
-	db.Exec(`DELETE FROM pengumuman WHERE id=$1`, id)
+	db.Exec(`DELETE FROM pengumuman WHERE id=$1 AND sekolah_id=$2`, id, c.SekolahID)
 	respond(w, 200, map[string]string{"ok": "1"})
 }
 
