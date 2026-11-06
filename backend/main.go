@@ -71,6 +71,9 @@ func main() {
 	mux.HandleFunc("GET /icons/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "../frontend/"+strings.TrimPrefix(r.URL.Path, "/"))
 	}))
+	mux.HandleFunc("GET /fonts/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "../frontend/"+strings.TrimPrefix(r.URL.Path, "/"))
+	}))
 	// Landing page promosi di /, aplikasi di /app/
 	mux.Handle("GET /{$}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "../frontend/landing.html")
@@ -107,10 +110,10 @@ func cors(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; script-src 'self' 'unsafe-inline'")
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; script-src 'self' 'unsafe-inline'")
 		// CORS hanya untuk origin yang diizinkan (same-origin tidak butuh CORS)
 		origin := r.Header.Get("Origin")
-		allowed := []string{"https://app.sistemflow.com", "https://sistemflow.com", "https://meaning-wagon-fairfield-walking.trycloudflare.com"}
+		allowed := []string{"https://schoolvia.id", "https://www.schoolvia.id", "https://app.schoolvia.id", "https://app.sistemflow.com", "https://sistemflow.com"}
 		for _, a := range allowed {
 			if origin == a {
 				h.Set("Access-Control-Allow-Origin", origin)
