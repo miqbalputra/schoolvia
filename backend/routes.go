@@ -117,7 +117,7 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("PUT /api/pengaturan", authMiddleware(writeGuard(roleMW(handleUpdatePengaturan, "kepala_sekolah", "tu"))))
 
 	// Reset password (kepala sekolah)
-	api.Handle("POST /api/users/{id}/reset-password", authMiddleware(writeGuard(roleMW(handleResetPassword, "kepala_sekolah"))))
+	api.Handle("POST /api/users/{id}/reset-password", authMiddleware(writeGuard(roleMW(handleResetPassword, "kepala_sekolah", "tu"))))
 
 	// Ubah password sendiri
 	api.Handle("POST /api/ubah-password", authMiddleware(writeGuard(roleMW(handleUbahPassword, "kepala_sekolah", "guru", "tu"))))
@@ -130,8 +130,8 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("PUT /api/rapor-catatan/{id}", authMiddleware(writeGuard(roleMW(handleSaveCatatanRapor, "guru", "kepala_sekolah"))))
 
 	// User management (kepala sekolah)
-	api.Handle("GET /api/users", authMiddleware(writeGuard(roleMW(handleListUsers, "kepala_sekolah", "platform"))))
-	api.Handle("POST /api/users", authMiddleware(writeGuard(roleMW(handleCreateUser, "kepala_sekolah"))))
+	api.Handle("GET /api/users", authMiddleware(writeGuard(roleMW(handleListUsers, "kepala_sekolah", "tu", "platform"))))
+	api.Handle("POST /api/users", authMiddleware(writeGuard(roleMW(handleCreateUser, "kepala_sekolah", "tu"))))
 	api.Handle("DELETE /api/users/{id}", authMiddleware(writeGuard(roleMW(handleDeleteUser, "kepala_sekolah"))))
 
 	// Panel admin platform (role khusus owner)
@@ -994,6 +994,11 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request, c *Claims) {
 	}
 	if in.Role != "kepala_sekolah" && in.Role != "guru" && in.Role != "tu" {
 		jsonErr(w, 400, "Role tidak valid")
+		return
+	}
+	// Hanya kepala sekolah boleh membuat akun kepala sekolah lain
+	if in.Role == "kepala_sekolah" && c.Role != "kepala_sekolah" {
+		jsonErr(w, 403, "Hanya kepala sekolah yang dapat membuat akun kepala sekolah")
 		return
 	}
 	_, err := db.Exec(`INSERT INTO users (nama,email,password,role,nip,sekolah_id) VALUES ($1,$2,$3,$4,NULLIF($5,'-'),$6)`,

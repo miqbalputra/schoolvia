@@ -275,7 +275,7 @@ label{font-size:12.5px;font-weight:700;color:var(--muted);display:block;margin:1
         <div class="sec">Umum</div>
         <button :class="{active:page==='agenda'}" @click="page='agenda'">📅 Agenda</button>
         <button :class="{active:page==='pengumuman'}" @click="page='pengumuman'">📢 Pengumuman</button>
-        <button v-if="user.role==='kepala_sekolah'" :class="{active:page==='users'}" @click="page='users'">⚙️ Pengguna</button>
+        <button v-if="user.role==='kepala_sekolah' || user.role==='tu'" :class="{active:page==='users'}" @click="page='users'">⚙️ Pengguna</button>
         <button v-if="user.role==='kepala_sekolah'" :class="{active:page==='log'}" @click="page='log'">🕵️ Log Aktivitas</button>
         <button v-if="user.role!=='guru'" :class="{active:page==='pengaturan'}" @click="page='pengaturan'">🏫 Profil Sekolah</button>
         <button :class="{active:page==='akun'}" @click="page='akun'">🔑 Akun Saya</button>

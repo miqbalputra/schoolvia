@@ -59,13 +59,19 @@ func randPassword() string {
 
 func handleResetPassword(w http.ResponseWriter, r *http.Request, c *Claims) {
 	id, _ := strconv.Atoi(r.PathValue("id"))
-	// hanya boleh reset user dari sekolah yang sama; tidak boleh reset sesama kepala sekolah lain
+	// hanya boleh reset user dari sekolah yang sama
 	var sid int
 	var role string
 	if err := db.QueryRow(`SELECT COALESCE(sekolah_id,0), role FROM users WHERE id=$1`, id).Scan(&sid, &role); err != nil || sid != c.SekolahID {
 		jsonErr(w, 404, "Pengguna tidak ditemukan")
 		return
 	}
+	// Kepala sekolah tidak boleh di-reset oleh TU
+	if role == "kepala_sekolah" && c.Role != "kepala_sekolah" {
+		jsonErr(w, 403, "Hanya kepala sekolah yang boleh me-reset akun kepala sekolah")
+		return
+	}
+	// Tidak boleh me-reset kepala sekolah lain
 	if role == "kepala_sekolah" && id != c.UserID {
 		jsonErr(w, 403, "Tidak boleh me-reset kepala sekolah lain")
 		return
