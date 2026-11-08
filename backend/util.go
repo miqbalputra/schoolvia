@@ -27,12 +27,10 @@ func escapeLike(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }
 
-// validTanggal: format tanggal harus persis YYYY-MM-DD.
+// validTanggal: tanggal harus nyata dengan format persis YYYY-MM-DD.
 func validTanggal(s string) bool {
-	if len(s) != 10 || s[4] != '-' || s[7] != '-' {
-		return false
-	}
-	return isDigits(s[:4]) && isDigits(s[5:7]) && isDigits(s[8:])
+	_, err := time.Parse("2006-01-02", s)
+	return err == nil
 }
 
 // userErr: terjemahkan error database menjadi pesan manusiawi (bahasa Indonesia)
