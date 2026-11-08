@@ -145,7 +145,7 @@ td,th{padding:7px 6px;text-align:left;border-bottom:1px solid #f0f0f5}
 
 <div class="card" style="text-align:center"><p style="font-size:13.5px;margin:0 0 4px">Ada pertanyaan tentang anak Anda?</p>
 <p style="font-size:12.5px;color:#6b7280;margin:0">Hubungi guru/wali kelas atau pengelola sekolah.<br>` + esc(namaSekolah) + ` · ` + esc(kepala) + `</p></div>
-<p class="foot">Laporan ini dibuat otomatis oleh SchoolVia · ` + namaSekolah + `</p>
+<p class="foot">Laporan ini dibuat otomatis oleh SchoolVia · ` + esc(namaSekolah) + `</p>
 </body></html>`)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

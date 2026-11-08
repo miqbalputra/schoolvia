@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -175,7 +176,15 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 		KodeRef     string `json:"kode_ref"`
 	}
 	json.NewDecoder(r.Body).Decode(&in)
-	isiDemo := in.IsiDemo == nil || *in.IsiDemo // default: aktif (dihitung SETELAH decode)
+	if !daftarRateLimit(clientIP(r)) {
+		jsonErr(w, 429, "Terlalu banyak pendaftaran dari alamat ini. Coba lagi dalam satu jam.")
+		return
+	}
+	// default: tanpa data demo; aktif bila server jalan dengan SEED_DEMO=1
+	isiDemo := in.IsiDemo != nil && *in.IsiDemo
+	if in.IsiDemo == nil && os.Getenv("SEED_DEMO") == "1" {
+		isiDemo = true
+	}
 	in.Subdomain = strings.ToLower(strings.TrimSpace(in.Subdomain))
 	if in.NamaSekolah == "" || in.Subdomain == "" || in.NamaAdmin == "" || in.Email == "" || len(in.Password) < 6 {
 		jsonErr(w, 400, "Semua field wajib (password min 6 karakter)")
@@ -203,7 +212,8 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 		jenis = "umum"
 	}
 	var sid int
-	kodeRef := "REF" + itoa(int(time.Now().UnixNano()%100000)) + strings.ToLower(strings.Split(in.Subdomain, "")[0])
+	refTok, _ := waliTokenNew()
+	kodeRef := "REF" + strings.ToUpper(refTok[:12])
 	jenjang := strings.ToUpper(strings.TrimSpace(in.Jenjang))
 	if jenjang != "SD" && jenjang != "SMP" && jenjang != "SMA" {
 		jenjang = ""
@@ -232,7 +242,7 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 					base = sampai
 				}
 				db.Exec(`INSERT INTO langganan (sekolah_id, paket, status, sampai, catatan) VALUES ($1,'sekolah','aktif',$2,'Bonus rujukan 1 bulan')`, refID, base.AddDate(0, 1, 0))
-				logActivity(0, "rujukan", "Sekolah ID "+itoa(refID)+" dapat bonus 1 bulan dari rujukan "+ref)
+				logActivitySekolah(refID, "rujukan", "Sekolah ID "+itoa(refID)+" dapat bonus 1 bulan dari rujukan "+ref)
 			}
 		}
 	}

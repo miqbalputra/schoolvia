@@ -38,6 +38,7 @@ func csvRow(rows *sql.Rows, cols []string) ([]string, error) {
 }
 
 func csvEscape(s string) string {
+	s = csvSafe(s)
 	if strings.ContainsAny(s, ",\"\n") {
 		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
 	}

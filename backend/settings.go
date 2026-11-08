@@ -187,7 +187,7 @@ func handleSaveCatatanRapor(w http.ResponseWriter, r *http.Request, c *Claims) {
 
 func handleListLog(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`SELECT l.id, COALESCE(u.nama,'-'), l.aksi, COALESCE(l.detail,''), l.waktu::text
-		FROM activity_log l LEFT JOIN users u ON u.id=l.user_id ORDER BY l.waktu DESC, l.id DESC LIMIT 200`)
+		FROM activity_log l LEFT JOIN users u ON u.id=l.user_id WHERE l.sekolah_id=$1 ORDER BY l.waktu DESC, l.id DESC LIMIT 200`, userFromContext(r).SekolahID)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
 		return

@@ -1,19 +1,30 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // ---------- CSV EXPORT ----------
 // CSV dipisah ";" dan pakai BOM agar langsung rapi dibuka di Excel Indonesia.
+
+// csvSafe: netralkan formula injection pada sel CSV/Excel — sel yang diawali
+// = + @ tab CR diberi prefix apostrof agar tidak dieksekusi sebagai formula.
+// ('-' sengaja tidak disentuh agar angka negatif tetap terbaca sebagai angka.)
+func csvSafe(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
 
 func csvResponse(w http.ResponseWriter, name string, header []string, rows [][]string) {
 	var b strings.Builder
@@ -23,7 +34,7 @@ func csvResponse(w http.ResponseWriter, name string, header []string, rows [][]s
 	for _, r := range rows {
 		quoted := make([]string, len(r))
 		for i, c := range r {
-			quoted[i] = `"` + strings.ReplaceAll(c, `"`, `""`) + `"`
+			quoted[i] = `"` + strings.ReplaceAll(csvSafe(c), `"`, `""`) + `"`
 		}
 		b.WriteString(strings.Join(quoted, ";"))
 		b.WriteString("\r\n")
@@ -227,15 +238,7 @@ func handleRaporData(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCetakRapor(w http.ResponseWriter, r *http.Request) {
-	// Token boleh lewat query (?token=) karena dibuka sebagai tab cetak baru
-	if userFromContext(r) == nil {
-		tokStr := r.URL.Query().Get("token")
-		if tokStr != "" {
-			if tok, err := jwt.ParseWithClaims(tokStr, &Claims{}, func(t *jwt.Token) (interface{}, error) { return jwtSecret, nil }); err == nil && tok.Valid {
-				r = r.WithContext(context.WithValue(r.Context(), userKey, tok.Claims.(*Claims)))
-			}
-		}
-	}
+	// Hanya lewat authMiddleware (header Authorization); tidak ada lagi token via query.
 	c := userFromContext(r)
 	if c == nil {
 		http.Error(w, "Unauthorized", 401)
@@ -256,7 +259,7 @@ func handleCetakRapor(w http.ResponseWriter, r *http.Request) {
 	db.QueryRow(`SELECT nama, COALESCE(nis,''), kelas, COALESCE(nama_ortu,'') FROM siswa WHERE id=$1`, sid).Scan(&nama, &nis, &kelas, &ortu)
 	var namaSekolah, alamatSekolah, kepalaSekolah string
 	db.QueryRow(`SELECT nama_sekolah, COALESCE(alamat,''), COALESCE(kepala_sekolah,'') FROM pengaturan WHERE id=$1`, c.SekolahID).Scan(&namaSekolah, &alamatSekolah, &kepalaSekolah)
-	cw, _, _ := getCatatan(sid, ta)
+	cw, ek, pr := getCatatan(sid, ta)
 	rows, err := db.Query(`SELECT mapel, jenis, AVG(nilai) FROM nilai WHERE siswa_id=$1 AND tahun_ajaran=$2 GROUP BY mapel, jenis`, sid, ta)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
@@ -389,13 +392,13 @@ th,td{border:1px solid #333;padding:6px 8px;text-align:left} th{background:#e8f5
   <div>Kepala Sekolah<br><br><br><b>%s</b></div>
 </div>
 </body></html>`,
-		html.EscapeString(nama), html.EscapeString(namaSekolah), html.EscapeString(alamatSekolah), ta, html.EscapeString(kelas),
+		html.EscapeString(nama), html.EscapeString(namaSekolah), html.EscapeString(alamatSekolah), html.EscapeString(ta), html.EscapeString(kelas),
 		html.EscapeString(nama), html.EscapeString(nis),
 		html.EscapeString(kelas), html.EscapeString(ortu), b.String(),
 		strconv.FormatFloat(rata, 'f', 1, 64), predikat, ket,
 		hadir, sakit, izin, alpa,
 		eb.String(),
-		html.EscapeString(cw),
+		html.EscapeString(ek), html.EscapeString(pr), html.EscapeString(cw),
 		html.EscapeString(ortu), html.EscapeString(kepalaSekolah))
 }
 

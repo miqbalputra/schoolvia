@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -14,7 +15,9 @@ func registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/login", handleLogin)
 	mux.HandleFunc("POST /api/daftar", handleDaftar)
 	mux.HandleFunc("GET /api/manifest", handleManifest)
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "ok"}) })
+	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, 200, map[string]interface{}{"status": "ok", "demo": os.Getenv("SEED_DEMO") == "1"})
+	})
 
 	// Protected
 	api := http.NewServeMux()
@@ -87,9 +90,9 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("GET /api/export/nilai", authMiddleware(http.HandlerFunc(handleExportNilai)))
 	api.Handle("GET /api/export/keuangan", authMiddleware(http.HandlerFunc(handleExportKeuangan)))
 	api.Handle("GET /api/export/hafalan", authMiddleware(http.HandlerFunc(handleExportHafalan)))
-	api.Handle("GET /api/export/siswa", authMiddleware(http.HandlerFunc(handleExportSiswa)))
+	api.Handle("GET /api/export/siswa", authMiddleware(roleMWAuth(http.HandlerFunc(handleExportSiswa), "kepala_sekolah", "tu")))
 	api.Handle("GET /api/export/rekap", authMiddleware(roleMWAuth(planMWClaimsExport(handleExportRekap), "kepala_sekolah", "tu")))
-	api.Handle("GET /api/export/all", authMiddleware(http.HandlerFunc(handleExportAll)))
+	api.Handle("GET /api/export/all", authMiddleware(roleMWAuth(http.HandlerFunc(handleExportAll), "kepala_sekolah", "tu")))
 	api.Handle("GET /api/kode-ref", authMiddleware(http.HandlerFunc(handleKodeRefSaya)))
 	api.Handle("GET /api/laporan-mingguan", authMiddleware(http.HandlerFunc(handleLaporanMingguan)))
 	api.Handle("POST /api/wa-pengasuh", authMiddleware(writeGuard(roleMW(handleSetWaPengasuh, "kepala_sekolah", "tu"))))
@@ -97,8 +100,9 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("POST /api/import/preview", authMiddleware(writeGuard(http.HandlerFunc(handleImportPreview))))
 	api.Handle("POST /api/import/siswa", authMiddleware(writeGuard(roleMW(handleImportSiswa, "tu", "kepala_sekolah"))))
 	api.Handle("GET /api/rapor/{id}", authMiddleware(http.HandlerFunc(handleRaporData)))
-	api.Handle("GET /api/rapor-cetak/{id}", http.HandlerFunc(handleCetakRapor))
-	api.Handle("GET /api/kwitansi/{id}", http.HandlerFunc(handleKwitansi))
+	api.Handle("GET /api/rapor-cetak/{id}", authMiddleware(http.HandlerFunc(handleCetakRapor)))
+	api.Handle("GET /api/kwitansi/{id}", authOrShare(http.HandlerFunc(handleKwitansi)))
+	api.Handle("POST /api/kwitansi/{id}/share", authMiddleware(writeGuard(roleMW(handleKwitansiShare, "kepala_sekolah", "tu"))))
 	api.Handle("GET /api/laporan-wali/{id}", http.HandlerFunc(handleLaporanWali))
 	api.Handle("GET /api/wali-token/{id}", authMiddleware(authedHandler(handleWaliTokenGet)))
 	api.Handle("POST /api/wali-token/{id}", authMiddleware(writeGuard(roleMW(handleWaliTokenReset, "kepala_sekolah", "tu"))))
@@ -123,7 +127,7 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("POST /api/ubah-password", authMiddleware(writeGuard(roleMW(handleUbahPassword, "kepala_sekolah", "guru", "tu"))))
 
 	// Log aktivitas (kepala sekolah)
-	api.Handle("GET /api/activity-log", authMiddleware(http.HandlerFunc(handleListLog)))
+	api.Handle("GET /api/activity-log", authMiddleware(roleMWAuth(http.HandlerFunc(handleListLog), "kepala_sekolah")))
 
 	// Catatan rapor (wali kelas/guru/kepala)
 	api.Handle("GET /api/rapor-catatan/{id}", authMiddleware(http.HandlerFunc(handleGetCatatanRapor)))
@@ -220,10 +224,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&in)
 	email := strings.TrimSpace(strings.ToLower(in.Email))
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = strings.Split(r.RemoteAddr, ":")[0]
-	}
+	ip := clientIP(r)
 	key := ip + "|" + email
 	if msg := loginRateLimit(key); msg != "" {
 		jsonErr(w, 429, msg)
@@ -235,9 +236,14 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	err := db.QueryRow(`SELECT id,nama,email,role,COALESCE(nip,'-'),password,COALESCE(sekolah_id,1) FROM users WHERE email=$1`, email).
 		Scan(&u.ID, &u.Nama, &u.Email, &u.Role, &u.NIP, &hash, &sekolahID)
 	u.SekolahID = sekolahID
-	if err != nil || !checkPass(hash, in.Password) {
+	if err != nil {
+		checkPass(dummyHash, in.Password) // anti user-enumeration via timing
 		loginRecordFail(key)
-		db.Exec(`INSERT INTO login_fails (ip,email) VALUES ($1,$2)`, ip, email)
+		jsonErr(w, 401, "Email atau password salah")
+		return
+	}
+	if !checkPass(hash, in.Password) {
+		loginRecordFail(key)
 		jsonErr(w, 401, "Email atau password salah")
 		return
 	}
@@ -415,15 +421,14 @@ func handleListAbsensiSiswa(w http.ResponseWriter, r *http.Request) {
 		tanggal = today()
 	}
 	q := `SELECT s.id, s.nama, s.kelas, COALESCE(a.status,''), COALESCE(a.keterangan,'')
-		FROM siswa s LEFT JOIN absensi_siswa a ON a.siswa_id=s.id AND a.tanggal=$1 AND s.sekolah_id=` + itoa(userFromContext(r).SekolahID)
+		FROM siswa s LEFT JOIN absensi_siswa a ON a.siswa_id=s.id AND a.tanggal=$1`
 	args := []interface{}{tanggal}
+	where := ` WHERE s.sekolah_id=` + itoa(userFromContext(r).SekolahID) + ` AND s.status='aktif'`
 	if kelas != "" {
-		q += ` WHERE s.kelas=$2 AND s.status='aktif'`
+		where += ` AND s.kelas=$2`
 		args = append(args, kelas)
-	} else {
-		q += ` WHERE s.status='aktif'`
 	}
-	q += ` ORDER BY s.kelas, s.nama`
+	q += where + ` ORDER BY s.kelas, s.nama`
 	rows, err := db.Query(q, args...)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
@@ -642,6 +647,11 @@ func handleCreateHafalan(w http.ResponseWriter, r *http.Request, c *Claims) {
 	json.NewDecoder(r.Body).Decode(&in)
 	if in.Surah == "" || in.Status == "" {
 		jsonErr(w, 400, "Surah dan status wajib")
+		return
+	}
+	var sid int
+	if err := db.QueryRow(`SELECT sekolah_id FROM siswa WHERE id=$1`, in.SiswaID).Scan(&sid); err != nil || sid != c.SekolahID {
+		jsonErr(w, 404, "Siswa tidak ditemukan")
 		return
 	}
 	_, err := db.Exec(`INSERT INTO hafalan (siswa_id,surah,ayat_dari,ayat_sampai,status,penyetor_guru_id,catatan) VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''))`,

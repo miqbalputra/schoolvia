@@ -122,6 +122,9 @@ go build -o simaka .
 | `DATABASE_URL` | `postgres://simaka:simaka123@localhost/simaka` | Koneksi PostgreSQL |
 | `PORT` | `8080` | Port HTTP |
 | `SchoolVia_PUBLIC_URL` | `https://sistemflow.com` | URL publik untuk link WA |
+| `SEED_DEMO` | `0` | Bila `1`: seed akun demo (`kepala@simaka.id`/`kepala123`) & aktifkan `?demo=1` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Wajib bila `SEED_DEMO` tidak di-set: membuat akun kepala sekolah pertama pada instalasi baru |
+| `TRUSTED_PROXY` | `0` | Bila `1` (di belakang reverse proxy), rate-limit memakai IP terakhir dari `X-Forwarded-For` |
 
 ### 3️⃣ Masuk
 
@@ -131,7 +134,7 @@ go build -o simaka .
 | Guru | `guru@simaka.id` | (lihat data demo) |
 | Tata Usaha | `tu@simaka.id` | (lihat data demo) |
 
-> Data demo berisi sekolah contoh dengan santri, nilai, hafalan, dan tagihan — pas untuk mencoba semua alur sebelum data asli dimasukkan.
+> Data demo berisi sekolah contoh dengan santri, nilai, hafalan, dan tagihan — pas untuk mencoba semua alur sebelum data asli dimasukkan. **Akun demo hanya ada bila server dijalankan dengan `SEED_DEMO=1`.** Pada instalasi baru tanpa `SEED_DEMO`, buat akun kepala sekolah pertama via `ADMIN_EMAIL` + `ADMIN_PASSWORD`.
 
 ---
 

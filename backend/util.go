@@ -9,6 +9,19 @@ func today() string {
 	return time.Now().Format("2006-01-02")
 }
 
+// isDigits: true bila s hanya berisi digit ASCII (dipakai validasi input LIKE).
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // userErr: terjemahkan error database menjadi pesan manusiawi (bahasa Indonesia)
 func userErr(err error) string {
 	if err == nil {

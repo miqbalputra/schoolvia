@@ -9,6 +9,19 @@ type ctxKey string
 
 const userKey ctxKey = "user"
 
+const shareKey ctxKey = "share_sekolah"
+
+func contextWithShare(r *http.Request, sekolahID int) context.Context {
+	return context.WithValue(r.Context(), shareKey, sekolahID)
+}
+
+func shareFromContext(r *http.Request) int {
+	if v, ok := r.Context().Value(shareKey).(int); ok {
+		return v
+	}
+	return 0
+}
+
 type User struct {
 	ID        int    `json:"id"`
 	Nama      string `json:"nama"`

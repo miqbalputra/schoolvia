@@ -12,6 +12,10 @@ import (
 
 var jwtSecret = []byte("diisi-saat-startup-oleh-loadOrCreateSecret")
 
+// dummyHash: dipakai saat email tidak ditemukan agar waktu respons sama
+// (mencegah user-enumeration via timing).
+var dummyHash = hashPass("schoolvia-timing-guard-0000")
+
 func hashPass(p string) string {
 	b, _ := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
 	return string(b)
@@ -35,23 +39,29 @@ func makeToken(u *User) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(jwtSecret)
 }
 
+// claimsFromRequest: parse JWT HANYA dari header Authorization.
+// Token tidak lagi diterima via query string (?token=) agar tidak terekam di log server/history browser.
+func claimsFromRequest(r *http.Request) *Claims {
+	h := r.Header.Get("Authorization")
+	if !strings.HasPrefix(h, "Bearer ") {
+		return nil
+	}
+	tok, err := jwt.ParseWithClaims(strings.TrimPrefix(h, "Bearer "), &Claims{},
+		func(t *jwt.Token) (interface{}, error) { return jwtSecret, nil })
+	if err != nil || !tok.Valid {
+		return nil
+	}
+	return tok.Claims.(*Claims)
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h := r.Header.Get("Authorization")
-		if h == "" && r.URL.Query().Get("token") != "" {
-			h = "Bearer " + r.URL.Query().Get("token") // unduhan langsung via link (ZIP/CSV)
-		}
-		if !strings.HasPrefix(h, "Bearer ") {
-			jsonErr(w, 401, "Token tidak ada")
-			return
-		}
-		tok, err := jwt.ParseWithClaims(strings.TrimPrefix(h, "Bearer "), &Claims{},
-			func(t *jwt.Token) (interface{}, error) { return jwtSecret, nil })
-		if err != nil || !tok.Valid {
+		c := claimsFromRequest(r)
+		if c == nil {
 			jsonErr(w, 401, "Token tidak valid")
 			return
 		}
-		r = r.WithContext(contextWithUser(r, tok.Claims.(*Claims)))
+		r = r.WithContext(contextWithUser(r, c))
 		next.ServeHTTP(w, r)
 	})
 }

@@ -134,7 +134,7 @@ func kirimLaporanSemua() {
 			continue
 		}
 		// wa.me link dikirim via log (notif panel); pengiriman aktual lewat wa.me dibuka admin/user
-		logActivity(0, "laporan_mingguan", "Laporan mingguan siap kirim untuk sekolah "+itoa(id)+" (WA "+wa+")")
+		logActivitySekolah(id, "laporan_mingguan", "Laporan mingguan siap kirim untuk sekolah "+itoa(id)+" (WA "+wa+")")
 		_ = r.Teks
 	}
 }

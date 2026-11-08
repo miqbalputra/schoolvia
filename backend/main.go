@@ -59,6 +59,9 @@ func main() {
 	if err := migrateTenants(); err != nil {
 		log.Fatal("migrate tenants: ", err)
 	}
+	if err := migrateShares(); err != nil {
+		log.Fatal("migrate shares: ", err)
+	}
 	if err := seed(); err != nil {
 		log.Fatal("seed: ", err)
 	}
@@ -110,7 +113,7 @@ func cors(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
 		// CORS hanya untuk origin yang diizinkan (same-origin tidak butuh CORS)
 		origin := r.Header.Get("Origin")
 		allowed := []string{"https://schoolvia.id", "https://www.schoolvia.id", "https://app.schoolvia.id", "https://app.sistemflow.com", "https://sistemflow.com"}
