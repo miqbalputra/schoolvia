@@ -66,6 +66,20 @@ func migrateTenants() error {
 		// Registrasi instalasi utama sebagai sekolah 1, lalu majukan sequence
 		`INSERT INTO sekolah (id, subdomain, nama, status)
 		 VALUES (1, 'utama', 'Griya Quran Tunas Ilmu', 'aktif') ON CONFLICT (id) DO NOTHING`,
+		// tabel yang punya FK ke sekolah(id) — dibuat setelah sekolah ada (dulu di migrate() sehingga gagal di DB fresh)
+		`CREATE TABLE IF NOT EXISTS mapel (
+			id SERIAL PRIMARY KEY,
+			sekolah_id INT NOT NULL REFERENCES sekolah(id) ON DELETE CASCADE,
+			nama TEXT NOT NULL,
+			jenjang TEXT,
+			UNIQUE(sekolah_id, nama)
+		)`,
+		`CREATE TABLE IF NOT EXISTS kelas_tingkat (
+			id SERIAL PRIMARY KEY,
+			sekolah_id INT NOT NULL REFERENCES sekolah(id) ON DELETE CASCADE,
+			tingkat TEXT NOT NULL,
+			UNIQUE(sekolah_id, tingkat)
+		)`,
 		`SELECT setval('sekolah_id_seq', (SELECT COALESCE(MAX(id),1) FROM sekolah))`,
 		// Pengaturan lama dipetakan ke sekolah 1
 		`UPDATE users SET sekolah_id=1 WHERE sekolah_id IS NULL`,

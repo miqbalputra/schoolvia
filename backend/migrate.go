@@ -170,19 +170,6 @@ func migrate() error {
 			wali_id INT REFERENCES users(id),
 			UNIQUE(siswa_id, tahun_ajaran)
 		)`,
-		`CREATE TABLE IF NOT EXISTS mapel (
-			id SERIAL PRIMARY KEY,
-			sekolah_id INT NOT NULL REFERENCES sekolah(id) ON DELETE CASCADE,
-			nama TEXT NOT NULL,
-			jenjang TEXT,
-			UNIQUE(sekolah_id, nama)
-		)`,
-		`CREATE TABLE IF NOT EXISTS kelas_tingkat (
-			id SERIAL PRIMARY KEY,
-			sekolah_id INT NOT NULL REFERENCES sekolah(id) ON DELETE CASCADE,
-			tingkat TEXT NOT NULL,
-			UNIQUE(sekolah_id, tingkat)
-		)`,
 		`CREATE TABLE IF NOT EXISTS wali_token (
 			id SERIAL PRIMARY KEY,
 			siswa_id INT NOT NULL REFERENCES siswa(id),
