@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -26,23 +27,49 @@ func checkPass(hash, p string) bool {
 }
 
 type Claims struct {
-	UserID    int    `json:"uid"`
-	Nama      string `json:"nama"`
-	Role      string `json:"role"`
-	SekolahID int    `json:"sid"`
+	UserID       int    `json:"uid"`
+	Nama         string `json:"nama"`
+	Role         string `json:"role"`
+	SekolahID    int    `json:"sid"`
+	TokenVersion int    `json:"tv"`
 	jwt.RegisteredClaims
 }
 
 func makeToken(u *User) (string, error) {
-	c := Claims{UserID: u.ID, Nama: u.Nama, Role: u.Role, SekolahID: u.SekolahID,
+	c := Claims{UserID: u.ID, Nama: u.Nama, Role: u.Role, SekolahID: u.SekolahID, TokenVersion: u.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(72 * time.Hour))}}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(jwtSecret)
+}
+
+// tokenVersionOK: token hanya berlaku bila masih cocok dengan token_version user
+// (dinaikkan setiap password diubah/reset, sehingga sesi lama langsung mati).
+func tokenVersionOK(userID, tv int) bool {
+	if db == nil {
+		return true
+	}
+	var cur int
+	if err := db.QueryRow(`SELECT token_version FROM users WHERE id=$1`, userID).Scan(&cur); err != nil {
+		return false
+	}
+	return cur == tv
+}
+
+// handleLogout: hapus cookie sesi.
+func handleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: "sv_session", Value: "", Path: "/", HttpOnly: true,
+		SameSite: http.SameSiteStrictMode, MaxAge: -1, Secure: os.Getenv("COOKIE_SECURE") == "1"})
+	respond(w, 200, map[string]string{"ok": "1"})
 }
 
 // claimsFromRequest: parse JWT HANYA dari header Authorization.
 // Token tidak lagi diterima via query string (?token=) agar tidak terekam di log server/history browser.
 func claimsFromRequest(r *http.Request) *Claims {
 	h := r.Header.Get("Authorization")
+	if !strings.HasPrefix(h, "Bearer ") {
+		if ck, err := r.Cookie("sv_session"); err == nil && ck.Value != "" {
+			h = "Bearer " + ck.Value
+		}
+	}
 	if !strings.HasPrefix(h, "Bearer ") {
 		return nil
 	}
@@ -57,7 +84,7 @@ func claimsFromRequest(r *http.Request) *Claims {
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := claimsFromRequest(r)
-		if c == nil {
+		if c == nil || !tokenVersionOK(c.UserID, c.TokenVersion) {
 			jsonErr(w, 401, "Token tidak valid")
 			return
 		}

@@ -23,12 +23,13 @@ func shareFromContext(r *http.Request) int {
 }
 
 type User struct {
-	ID        int    `json:"id"`
-	Nama      string `json:"nama"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	NIP       string `json:"nip"`
-	SekolahID int    `json:"sekolah_id"`
+	ID           int    `json:"id"`
+	Nama         string `json:"nama"`
+	Email        string `json:"email"`
+	Role         string `json:"role"`
+	NIP          string `json:"nip"`
+	SekolahID    int    `json:"sekolah_id"`
+	TokenVersion int    `json:"-"`
 }
 
 func contextWithUser(r *http.Request, c *Claims) context.Context {

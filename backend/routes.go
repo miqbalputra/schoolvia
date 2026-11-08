@@ -13,6 +13,7 @@ import (
 func registerRoutes(mux *http.ServeMux) {
 	// Public
 	mux.HandleFunc("POST /api/login", handleLogin)
+	mux.HandleFunc("POST /api/logout", handleLogout)
 	mux.HandleFunc("POST /api/daftar", handleDaftar)
 	mux.HandleFunc("GET /api/manifest", handleManifest)
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -120,8 +121,8 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("GET /api/pengaturan", authMiddleware(http.HandlerFunc(handleGetPengaturan)))
 	api.Handle("PUT /api/pengaturan", authMiddleware(writeGuard(roleMW(handleUpdatePengaturan, "kepala_sekolah", "tu"))))
 
-	// Reset password (kepala sekolah)
-	api.Handle("POST /api/users/{id}/reset-password", authMiddleware(writeGuard(roleMW(handleResetPassword, "kepala_sekolah", "tu"))))
+	// Reset password (khusus kepala sekolah)
+	api.Handle("POST /api/users/{id}/reset-password", authMiddleware(writeGuard(roleMW(handleResetPassword, "kepala_sekolah"))))
 
 	// Ubah password sendiri
 	api.Handle("POST /api/ubah-password", authMiddleware(writeGuard(roleMW(handleUbahPassword, "kepala_sekolah", "guru", "tu"))))
@@ -233,8 +234,8 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	var u User
 	var hash string
 	var sekolahID int
-	err := db.QueryRow(`SELECT id,nama,email,role,COALESCE(nip,'-'),password,COALESCE(sekolah_id,1) FROM users WHERE email=$1`, email).
-		Scan(&u.ID, &u.Nama, &u.Email, &u.Role, &u.NIP, &hash, &sekolahID)
+	err := db.QueryRow(`SELECT id,nama,email,role,COALESCE(nip,'-'),password,COALESCE(sekolah_id,0),token_version FROM users WHERE email=$1`, email).
+		Scan(&u.ID, &u.Nama, &u.Email, &u.Role, &u.NIP, &hash, &sekolahID, &u.TokenVersion)
 	u.SekolahID = sekolahID
 	if err != nil {
 		checkPass(dummyHash, in.Password) // anti user-enumeration via timing
@@ -243,6 +244,11 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !checkPass(hash, in.Password) {
+		loginRecordFail(key)
+		jsonErr(w, 401, "Email atau password salah")
+		return
+	}
+	if u.Role != "platform" && u.SekolahID == 0 {
 		loginRecordFail(key)
 		jsonErr(w, 401, "Email atau password salah")
 		return
@@ -264,8 +270,13 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	loginRecordSuccess(key)
 	tok, _ := makeToken(&u)
+	http.SetCookie(w, &http.Cookie{
+		Name: "sv_session", Value: tok, Path: "/", HttpOnly: true,
+		SameSite: http.SameSiteStrictMode, MaxAge: 72 * 3600,
+		Secure:   os.Getenv("COOKIE_SECURE") == "1",
+	})
 	logActivity(u.ID, "login", "Login berhasil")
-	respond(w, 200, map[string]interface{}{"token": tok, "user": u})
+	respond(w, 200, map[string]interface{}{"user": u})
 }
 
 func handleMe(w http.ResponseWriter, r *http.Request) {
@@ -1014,6 +1025,10 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request, c *Claims) {
 	json.NewDecoder(r.Body).Decode(&in)
 	if in.Nama == "" || in.Email == "" || in.Password == "" {
 		jsonErr(w, 400, "Nama, email, password wajib")
+		return
+	}
+	if len(in.Password) < 8 {
+		jsonErr(w, 400, "Password minimal 8 karakter")
 		return
 	}
 	if in.Role != "kepala_sekolah" && in.Role != "guru" && in.Role != "tu" {

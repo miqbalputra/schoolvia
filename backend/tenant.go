@@ -28,6 +28,9 @@ func migrateTenants() error {
 		)`,
 		// Kolom sekolah_id (default 1 = instalasi utama)
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`,
+		`ALTER TABLE siswa DROP CONSTRAINT IF EXISTS siswa_nis_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_siswa_nis_per_sekolah ON siswa (sekolah_id, nis) WHERE nis IS NOT NULL`,
 		`ALTER TABLE siswa ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
 		`ALTER TABLE pengumuman ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
 		`ALTER TABLE agenda ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,

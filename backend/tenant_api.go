@@ -186,8 +186,8 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 		isiDemo = true
 	}
 	in.Subdomain = strings.ToLower(strings.TrimSpace(in.Subdomain))
-	if in.NamaSekolah == "" || in.Subdomain == "" || in.NamaAdmin == "" || in.Email == "" || len(in.Password) < 6 {
-		jsonErr(w, 400, "Semua field wajib (password min 6 karakter)")
+	if in.NamaSekolah == "" || in.Subdomain == "" || in.NamaAdmin == "" || in.Email == "" || len(in.Password) < 8 {
+		jsonErr(w, 400, "Semua field wajib (password min 8 karakter)")
 		return
 	}
 	for _, ch := range in.Subdomain {

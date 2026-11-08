@@ -33,6 +33,14 @@ func TestAuthMiddlewareRejectsQueryToken(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("token via header harus diterima (200), dapat %d", rec2.Code)
 	}
+
+	req3 := httptest.NewRequest("GET", "/api/me", nil)
+	req3.AddCookie(&http.Cookie{Name: "sv_session", Value: tok})
+	rec3 := httptest.NewRecorder()
+	h.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusOK {
+		t.Fatalf("token via cookie httpOnly harus diterima (200), dapat %d", rec3.Code)
+	}
 }
 
 func TestCSVSafe(t *testing.T) {
