@@ -224,10 +224,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&in)
 	email := strings.TrimSpace(strings.ToLower(in.Email))
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = strings.Split(r.RemoteAddr, ":")[0]
-	}
+	ip := clientIP(r)
 	key := ip + "|" + email
 	if msg := loginRateLimit(key); msg != "" {
 		jsonErr(w, 429, msg)
@@ -239,9 +236,14 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	err := db.QueryRow(`SELECT id,nama,email,role,COALESCE(nip,'-'),password,COALESCE(sekolah_id,1) FROM users WHERE email=$1`, email).
 		Scan(&u.ID, &u.Nama, &u.Email, &u.Role, &u.NIP, &hash, &sekolahID)
 	u.SekolahID = sekolahID
-	if err != nil || !checkPass(hash, in.Password) {
+	if err != nil {
+		checkPass(dummyHash, in.Password) // anti user-enumeration via timing
 		loginRecordFail(key)
-		db.Exec(`INSERT INTO login_fails (ip,email) VALUES ($1,$2)`, ip, email)
+		jsonErr(w, 401, "Email atau password salah")
+		return
+	}
+	if !checkPass(hash, in.Password) {
+		loginRecordFail(key)
 		jsonErr(w, 401, "Email atau password salah")
 		return
 	}

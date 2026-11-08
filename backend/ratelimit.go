@@ -1,7 +1,10 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,8 +27,11 @@ func loginRateLimit(key string) string {
 	var cnt int
 	var lockedUntil time.Time
 	err := db.QueryRow(`SELECT count, locked_until FROM login_fails WHERE key=$1`, key).Scan(&cnt, &lockedUntil)
-	if err != nil {
+	if err == sql.ErrNoRows {
 		return "" // belum ada record
+	}
+	if err != nil {
+		return "Sistem sedang sibuk, coba lagi sebentar." // fail-closed: jangan izinkan saat DB error
 	}
 	if time.Now().Before(lockedUntil) {
 		sisa := int(time.Until(lockedUntil).Minutes()) + 1
@@ -63,6 +69,45 @@ func loginRecordSuccess(key string) {
 	loginMu.Lock()
 	defer loginMu.Unlock()
 	db.Exec(`DELETE FROM login_fails WHERE key=$1`, key)
+}
+
+// clientIP: IP klien. X-Forwarded-For hanya dipercaya bila TRUSTED_PROXY=true
+// (di belakang reverse proxy; ambil entry terakhir yang ditambahkan proxy kita).
+func clientIP(r *http.Request) string {
+	if os.Getenv("TRUSTED_PROXY") == "true" {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if ip := strings.TrimSpace(parts[len(parts)-1]); ip != "" {
+				return ip
+			}
+		}
+	}
+	return strings.Split(r.RemoteAddr, ":")[0]
+}
+
+var daftarMu sync.Mutex
+var daftarHits = map[string][]time.Time{}
+
+const daftarMaxPerHour = 10
+
+// daftarRateLimit: batasi pendaftaran sekolah baru per IP (in-memory, maks 10/jam).
+func daftarRateLimit(ip string) bool {
+	daftarMu.Lock()
+	defer daftarMu.Unlock()
+	now := time.Now()
+	cut := now.Add(-time.Hour)
+	kept := daftarHits[ip][:0]
+	for _, t := range daftarHits[ip] {
+		if t.After(cut) {
+			kept = append(kept, t)
+		}
+	}
+	daftarHits[ip] = kept
+	if len(kept) >= daftarMaxPerHour {
+		return false
+	}
+	daftarHits[ip] = append(kept, now)
+	return true
 }
 
 // logActivity: catat aksi user; sekolah_id diambil dari user agar log terikat tenant.

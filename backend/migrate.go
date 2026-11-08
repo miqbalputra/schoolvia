@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
 func migrate() error {
 	stmts := []string{
@@ -202,6 +206,20 @@ func seed() error {
 	if n > 0 {
 		return nil
 	}
+	if os.Getenv("SEED_DEMO") == "1" {
+		return seedDemo()
+	}
+	email := strings.TrimSpace(os.Getenv("ADMIN_EMAIL"))
+	pass := os.Getenv("ADMIN_PASSWORD")
+	if email == "" || pass == "" {
+		return fmt.Errorf("tabel users masih kosong: set SEED_DEMO=1 untuk menanam data demo, atau set ADMIN_EMAIL dan ADMIN_PASSWORD untuk membuat akun kepala sekolah pertama")
+	}
+	_, err := db.Exec(`INSERT INTO users (nama,email,password,role,sekolah_id) VALUES ('Kepala Sekolah', $1, $2, 'kepala_sekolah', 1)`,
+		strings.ToLower(email), hashPass(pass))
+	return err
+}
+
+func seedDemo() error {
 	users := []struct {
 		nama, email, pass, role, nip string
 	}{

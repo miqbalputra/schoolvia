@@ -12,6 +12,10 @@ import (
 
 var jwtSecret = []byte("diisi-saat-startup-oleh-loadOrCreateSecret")
 
+// dummyHash: dipakai saat email tidak ditemukan agar waktu respons sama
+// (mencegah user-enumeration via timing).
+var dummyHash = hashPass("schoolvia-timing-guard-0000")
+
 func hashPass(p string) string {
 	b, _ := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
 	return string(b)
