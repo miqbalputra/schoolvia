@@ -65,9 +65,15 @@ func loginRecordSuccess(key string) {
 	db.Exec(`DELETE FROM login_fails WHERE key=$1`, key)
 }
 
-// activityLog: catat aksi user (audit trail sederhana)
+// logActivity: catat aksi user; sekolah_id diambil dari user agar log terikat tenant.
 func logActivity(userID int, aksi, detail string) {
-	db.Exec(`INSERT INTO activity_log (user_id, aksi, detail) VALUES ($1,$2,$3)`, userID, aksi, detail)
+	db.Exec(`INSERT INTO activity_log (user_id, aksi, detail, sekolah_id)
+		SELECT $1, $2, $3, u.sekolah_id FROM users u WHERE u.id=$1`, userID, aksi, detail)
+}
+
+// logActivitySekolah: log tanpa user (mis. proses sistem), tetap terikat tenant.
+func logActivitySekolah(sekolahID int, aksi, detail string) {
+	db.Exec(`INSERT INTO activity_log (user_id, aksi, detail, sekolah_id) VALUES (NULL, $1, $2, $3)`, aksi, detail, sekolahID)
 }
 
 var _ = http.MethodGet

@@ -87,9 +87,9 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("GET /api/export/nilai", authMiddleware(http.HandlerFunc(handleExportNilai)))
 	api.Handle("GET /api/export/keuangan", authMiddleware(http.HandlerFunc(handleExportKeuangan)))
 	api.Handle("GET /api/export/hafalan", authMiddleware(http.HandlerFunc(handleExportHafalan)))
-	api.Handle("GET /api/export/siswa", authMiddleware(http.HandlerFunc(handleExportSiswa)))
+	api.Handle("GET /api/export/siswa", authMiddleware(roleMWAuth(http.HandlerFunc(handleExportSiswa), "kepala_sekolah", "tu")))
 	api.Handle("GET /api/export/rekap", authMiddleware(roleMWAuth(planMWClaimsExport(handleExportRekap), "kepala_sekolah", "tu")))
-	api.Handle("GET /api/export/all", authMiddleware(http.HandlerFunc(handleExportAll)))
+	api.Handle("GET /api/export/all", authMiddleware(roleMWAuth(http.HandlerFunc(handleExportAll), "kepala_sekolah", "tu")))
 	api.Handle("GET /api/kode-ref", authMiddleware(http.HandlerFunc(handleKodeRefSaya)))
 	api.Handle("GET /api/laporan-mingguan", authMiddleware(http.HandlerFunc(handleLaporanMingguan)))
 	api.Handle("POST /api/wa-pengasuh", authMiddleware(writeGuard(roleMW(handleSetWaPengasuh, "kepala_sekolah", "tu"))))
@@ -123,7 +123,7 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("POST /api/ubah-password", authMiddleware(writeGuard(roleMW(handleUbahPassword, "kepala_sekolah", "guru", "tu"))))
 
 	// Log aktivitas (kepala sekolah)
-	api.Handle("GET /api/activity-log", authMiddleware(http.HandlerFunc(handleListLog)))
+	api.Handle("GET /api/activity-log", authMiddleware(roleMWAuth(http.HandlerFunc(handleListLog), "kepala_sekolah")))
 
 	// Catatan rapor (wali kelas/guru/kepala)
 	api.Handle("GET /api/rapor-catatan/{id}", authMiddleware(http.HandlerFunc(handleGetCatatanRapor)))
@@ -415,15 +415,14 @@ func handleListAbsensiSiswa(w http.ResponseWriter, r *http.Request) {
 		tanggal = today()
 	}
 	q := `SELECT s.id, s.nama, s.kelas, COALESCE(a.status,''), COALESCE(a.keterangan,'')
-		FROM siswa s LEFT JOIN absensi_siswa a ON a.siswa_id=s.id AND a.tanggal=$1 AND s.sekolah_id=` + itoa(userFromContext(r).SekolahID)
+		FROM siswa s LEFT JOIN absensi_siswa a ON a.siswa_id=s.id AND a.tanggal=$1`
 	args := []interface{}{tanggal}
+	where := ` WHERE s.sekolah_id=` + itoa(userFromContext(r).SekolahID) + ` AND s.status='aktif'`
 	if kelas != "" {
-		q += ` WHERE s.kelas=$2 AND s.status='aktif'`
+		where += ` AND s.kelas=$2`
 		args = append(args, kelas)
-	} else {
-		q += ` WHERE s.status='aktif'`
 	}
-	q += ` ORDER BY s.kelas, s.nama`
+	q += where + ` ORDER BY s.kelas, s.nama`
 	rows, err := db.Query(q, args...)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
@@ -642,6 +641,11 @@ func handleCreateHafalan(w http.ResponseWriter, r *http.Request, c *Claims) {
 	json.NewDecoder(r.Body).Decode(&in)
 	if in.Surah == "" || in.Status == "" {
 		jsonErr(w, 400, "Surah dan status wajib")
+		return
+	}
+	var sid int
+	if err := db.QueryRow(`SELECT sekolah_id FROM siswa WHERE id=$1`, in.SiswaID).Scan(&sid); err != nil || sid != c.SekolahID {
+		jsonErr(w, 404, "Siswa tidak ditemukan")
 		return
 	}
 	_, err := db.Exec(`INSERT INTO hafalan (siswa_id,surah,ayat_dari,ayat_sampai,status,penyetor_guru_id,catatan) VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''))`,

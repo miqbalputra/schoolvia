@@ -232,7 +232,7 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 					base = sampai
 				}
 				db.Exec(`INSERT INTO langganan (sekolah_id, paket, status, sampai, catatan) VALUES ($1,'sekolah','aktif',$2,'Bonus rujukan 1 bulan')`, refID, base.AddDate(0, 1, 0))
-				logActivity(0, "rujukan", "Sekolah ID "+itoa(refID)+" dapat bonus 1 bulan dari rujukan "+ref)
+				logActivitySekolah(refID, "rujukan", "Sekolah ID "+itoa(refID)+" dapat bonus 1 bulan dari rujukan "+ref)
 			}
 		}
 	}
