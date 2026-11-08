@@ -1,11 +1,13 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"context"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -173,6 +175,8 @@ func handleKwitansi(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Kwitansi tidak ditemukan (SPP belum lunas?)", 404)
 		return
 	}
+	e := html.EscapeString
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Kwitansi SPP %s</title>
 <style>
  @media print { .noprint{display:none} body{margin:0} }
@@ -211,8 +215,8 @@ func handleKwitansi(w http.ResponseWriter, r *http.Request) {
  <div class="box">%s, ____________________<br>Kepala Sekolah</div></div>
  <div class="foot">Kwitansi ini sah dan dibuat otomatis oleh SchoolVia</div>
 </div></body></html>`,
-		nama, namaSekolah, alamat, itoa(id), bulan, nama, kelas, bulan, tahun, tglIndo(tglBayar), metode, petugas,
-		fnumFmt(jumlah), petugas, namaSekolah)
+		e(nama), e(namaSekolah), e(alamat), itoa(id), e(bulan), e(nama), e(kelas), e(bulan), e(tahun), e(tglIndo(tglBayar)), e(metode), e(petugas),
+		fnumFmt(jumlah), e(petugas), e(namaSekolah))
 }
 
 func fnumFmt(v float64) string {

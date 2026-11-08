@@ -256,7 +256,7 @@ func handleCetakRapor(w http.ResponseWriter, r *http.Request) {
 	db.QueryRow(`SELECT nama, COALESCE(nis,''), kelas, COALESCE(nama_ortu,'') FROM siswa WHERE id=$1`, sid).Scan(&nama, &nis, &kelas, &ortu)
 	var namaSekolah, alamatSekolah, kepalaSekolah string
 	db.QueryRow(`SELECT nama_sekolah, COALESCE(alamat,''), COALESCE(kepala_sekolah,'') FROM pengaturan WHERE id=$1`, c.SekolahID).Scan(&namaSekolah, &alamatSekolah, &kepalaSekolah)
-	cw, _, _ := getCatatan(sid, ta)
+	cw, ek, pr := getCatatan(sid, ta)
 	rows, err := db.Query(`SELECT mapel, jenis, AVG(nilai) FROM nilai WHERE siswa_id=$1 AND tahun_ajaran=$2 GROUP BY mapel, jenis`, sid, ta)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
@@ -389,13 +389,13 @@ th,td{border:1px solid #333;padding:6px 8px;text-align:left} th{background:#e8f5
   <div>Kepala Sekolah<br><br><br><b>%s</b></div>
 </div>
 </body></html>`,
-		html.EscapeString(nama), html.EscapeString(namaSekolah), html.EscapeString(alamatSekolah), ta, html.EscapeString(kelas),
+		html.EscapeString(nama), html.EscapeString(namaSekolah), html.EscapeString(alamatSekolah), html.EscapeString(ta), html.EscapeString(kelas),
 		html.EscapeString(nama), html.EscapeString(nis),
 		html.EscapeString(kelas), html.EscapeString(ortu), b.String(),
 		strconv.FormatFloat(rata, 'f', 1, 64), predikat, ket,
 		hadir, sakit, izin, alpa,
 		eb.String(),
-		html.EscapeString(cw),
+		html.EscapeString(ek), html.EscapeString(pr), html.EscapeString(cw),
 		html.EscapeString(ortu), html.EscapeString(kepalaSekolah))
 }
 
