@@ -35,7 +35,6 @@ func main() {
 		log.Fatal("DB not reachable: ", err)
 	}
 	sec, err := loadOrCreateSecret()
-	initEkskulSchema()
 	if err != nil {
 		log.Fatal("jwt secret: ", err)
 	}
@@ -70,6 +69,8 @@ func main() {
 	if err := migrateShares(); err != nil {
 		log.Fatal("migrate shares: ", err)
 	}
+	// setelah migrateTenants: tabel ekskul punya FK ke sekolah(id)
+	initEkskulSchema()
 	if err := seed(); err != nil {
 		log.Fatal("seed: ", err)
 	}
