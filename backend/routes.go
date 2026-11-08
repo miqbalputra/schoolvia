@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -14,7 +15,9 @@ func registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/login", handleLogin)
 	mux.HandleFunc("POST /api/daftar", handleDaftar)
 	mux.HandleFunc("GET /api/manifest", handleManifest)
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "ok"}) })
+	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, 200, map[string]interface{}{"status": "ok", "demo": os.Getenv("SEED_DEMO") == "1"})
+	})
 
 	// Protected
 	api := http.NewServeMux()
@@ -97,8 +100,9 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("POST /api/import/preview", authMiddleware(writeGuard(http.HandlerFunc(handleImportPreview))))
 	api.Handle("POST /api/import/siswa", authMiddleware(writeGuard(roleMW(handleImportSiswa, "tu", "kepala_sekolah"))))
 	api.Handle("GET /api/rapor/{id}", authMiddleware(http.HandlerFunc(handleRaporData)))
-	api.Handle("GET /api/rapor-cetak/{id}", http.HandlerFunc(handleCetakRapor))
-	api.Handle("GET /api/kwitansi/{id}", http.HandlerFunc(handleKwitansi))
+	api.Handle("GET /api/rapor-cetak/{id}", authMiddleware(http.HandlerFunc(handleCetakRapor)))
+	api.Handle("GET /api/kwitansi/{id}", authOrShare(http.HandlerFunc(handleKwitansi)))
+	api.Handle("POST /api/kwitansi/{id}/share", authMiddleware(writeGuard(roleMW(handleKwitansiShare, "kepala_sekolah", "tu"))))
 	api.Handle("GET /api/laporan-wali/{id}", http.HandlerFunc(handleLaporanWali))
 	api.Handle("GET /api/wali-token/{id}", authMiddleware(authedHandler(handleWaliTokenGet)))
 	api.Handle("POST /api/wali-token/{id}", authMiddleware(writeGuard(roleMW(handleWaliTokenReset, "kepala_sekolah", "tu"))))

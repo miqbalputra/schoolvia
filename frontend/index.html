@@ -267,7 +267,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
           {{ mode==='daftar' ? '← Sudah punya akun? Masuk' : 'Belum punya? Daftar sekolah baru (gratis 14 hari)' }}
         </a>
       </div>
-      <div class="demo-accounts" v-if="mode==='login'">
+      <div class="demo-accounts" v-if="mode==='login' && demoOn">
         <b>Akun demo:</b><br>
         Kepala Sekolah — <b @click="login.email='kepala@simaka.id';login.password='kepala123'">kepala@simaka.id</b><br>
         Guru — <b @click="login.email='guru@simaka.id';login.password='guru123'">guru@simaka.id</b><br>
@@ -547,7 +547,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
             <td><span class="badge" :class="t.status==='lunas'?'b-lunas':'b-belum'">{{ t.status }}</span></td><td>{{ t.tgl_bayar || '-' }}</td>
             <td><button v-if="t.status!=='lunas'" class="btn sm" @click="bayarSPP(t)">Tandai Lunas</button>
               <a v-if="t.status!=='lunas' && t.hp" class="btn sm" style="background:#25d366;text-decoration:none" :href="waTagihan(t)" target="_blank" title="Ingatkan via WhatsApp">💬 WA</a>
-              <a v-if="t.status==='lunas'" class="btn sm sec" :href="API+'/kwitansi/'+t.id" target="_blank">🧾 Kwitansi</a>
+              <a v-if="t.status==='lunas'" class="btn sm sec" href="#" @click.prevent="openKwitansi(t)">🧾 Kwitansi</a>
               <a v-if="t.status==='lunas' && t.hp" class="btn sm" style="background:#25d366;text-decoration:none" :href="waKwitansi(t)" target="_blank" title="Kirim kwitansi via WhatsApp">💬</a></td></tr>
         </table>
         <div v-else class="empty">Belum ada tagihan SPP.<br><small>Tekan "⚙️ Generate Tagihan Bulan Baru" di atas untuk membuat tagihan bulanan sekaligus.</small></div>
@@ -585,7 +585,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
         <div class="toolbar">
           <input type="month" v-model="rekapBulan" style="max-width:200px">
           <button class="btn" @click="loadRekap">Tampilkan</button>
-          <a class="btn sec" :href="API+'/export/rekap?bulan='+rekapBulan+'&token='+token" target="_blank">⬇️ Unduh Excel <span v-if="langganan.plan==='gratis'" style="font-size:10px">🔒</span></a>
+          <a class="btn sec" href="#" @click.prevent="exportURL(API+'/api/export/rekap?bulan='+encodeURIComponent(rekapBulan), 'rekap-'+rekapBulan+'.csv')">⬇️ Unduh Excel <span v-if="langganan.plan==='gratis'" style="font-size:10px">🔒</span></a>
         </div>
         <div v-if="rekap">
           <div class="stats" style="margin:14px 0">
@@ -671,7 +671,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
         <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line)">
           <b>📦 Data Anda Milik Anda</b>
           <p style="font-size:13px;opacity:.75;margin:6px 0 10px">Unduh seluruh data sekolah (siswa, nilai, absensi, SPP, keuangan, dan hafalan bila aktif) dalam satu file ZIP yang bisa dibuka dengan Excel. Data bisa diunduh kapan saja, kapan pun, apa pun status langganan Anda.</p>
-          <a class="btn sec" :href="'/api/export/all?token='+token" download>⬇️ Unduh Semua Data (ZIP)</a>
+          <a class="btn sec" href="#" @click.prevent="exportURL('/api/export/all', 'data-sekolah.zip')">⬇️ Unduh Semua Data (ZIP)</a>
         </div>
       </div>
 
@@ -1109,6 +1109,7 @@ createApp({
   setup() {
     const API = location.origin; // API & frontend served from same origin via Go
     const token = ref(localStorage.getItem('simaka_token') || '');
+    const demoOn = ref(false);
     const user = ref(JSON.parse(localStorage.getItem('simaka_user') || 'null') || {});
     const menuQuran = computed(() => (user.value.jenis || 'islam') === 'islam'); // default islam utk user lama
     const page = ref('dashboard');
@@ -1355,7 +1356,7 @@ createApp({
         showToast('Catatan rapor tersimpan ✅');
       } catch(e){ showToast(e.message, true); }
     }
-    function cetakRapor(){ window.open('/api/rapor-cetak/'+raporSiswa.value+'?tahun_ajaran='+encodeURIComponent(raporTA.value)+'&token='+encodeURIComponent(token.value), '_blank'); }
+    function cetakRapor(){ openHtmlURL('/api/rapor-cetak/'+raporSiswa.value+'?tahun_ajaran='+encodeURIComponent(raporTA.value)); }
     async function saveWaPengasuh(){ try { await api('/wa-pengasuh',{method:'POST',body:JSON.stringify({wa_pengasuh:set.value.wa_pengasuh})}); showToast('Nomor WA pengasuh tersimpan ✅'); } catch(e){ showToast(e.message,true); } }
     async function kirimLaporan(){
       try {
@@ -1381,10 +1382,14 @@ createApp({
         showToast('Tautan lama sudah tidak berlaku. Tautan baru siap — kirim ulang ke orang tua. ✅');
       } catch(e){ showToast(e.message, true); }
     }
-    function waKwitansi(t){
-      const link = location.origin + '/api/kwitansi/' + t.id + '?token=' + encodeURIComponent(token.value);
-      const msg = 'Assalamualaikum, kwitansi pembayaran SPP ' + t.siswa + ' bulan ' + t.bulan + ' ' + t.tahun + ' (' + rp(t.jumlah) + ') sudah kami terima. Berikut kwitansinya: ' + link;
-      window.open('https://wa.me/' + waNorm2(t.hp) + '?text=' + encodeURIComponent(msg), '_blank');
+    async function waKwitansi(t){
+      try {
+        // Pakai token bagikan (?share=), JANGAN kirim JWT akun ke orang tua via WA
+        const s = await api('/api/kwitansi/' + t.id + '/share', {method:'POST'});
+        const link = location.origin + '/api/kwitansi/' + t.id + '?share=' + encodeURIComponent(s.token);
+        const msg = 'Assalamualaikum, kwitansi pembayaran SPP ' + t.siswa + ' bulan ' + t.bulan + ' ' + t.tahun + ' (' + rp(t.jumlah) + ') sudah kami terima. Berikut kwitansinya: ' + link + ' (berlaku s/d ' + s.kadaluarsa + ')';
+        window.open('https://wa.me/' + waNorm2(t.hp) + '?text=' + encodeURIComponent(msg), '_blank');
+      } catch(e){ showToast(e.message, true); }
     }
     function exportCSV(jenis){
       const base = {absensi:'/api/export/absensi?bulan=', spp:'/api/export/spp', nilai:'/api/export/nilai', keuangan:'/api/export/keuangan'}[jenis];
@@ -1395,6 +1400,26 @@ createApp({
           const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='rekap-'+jenis+'.csv'; a.click(); })
         .catch(e=>showToast(e.message,true));
     }
+    // Unduh via fetch + Authorization header — token tidak pernah muncul di URL
+    async function exportURL(url, filename){
+      try {
+        const r = await fetch(url, {headers:{Authorization:'Bearer '+token.value}});
+        if(!r.ok) throw new Error('Gagal ekspor');
+        const b = await r.blob();
+        const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=filename; a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+      } catch(e){ showToast(e.message,true); }
+    }
+    // Buka halaman HTML (kwitansi/rapor-cetak) via fetch agar token tetap di header
+    async function openHtmlURL(url){
+      try {
+        const r = await fetch(url, {headers:{Authorization:'Bearer '+token.value}});
+        if(!r.ok) throw new Error('Gagal membuka halaman');
+        const b = await r.blob();
+        window.open(URL.createObjectURL(b), '_blank');
+      } catch(e){ showToast(e.message,true); }
+    }
+    function openKwitansi(t){ openHtmlURL(API+'/api/kwitansi/'+t.id); }
     function openBulk(){ bulk.value = {kelas:'', mapel:'', jenis:'tugas', semester:'ganjil', items:[]}; modalBulk.value = true; }
     async function loadBulkSiswa(){
       if (!bulk.value.kelas) { bulk.value.items = []; return; }
@@ -1527,11 +1552,14 @@ createApp({
 
     onMounted(() => { if (token.value) { load('dashboard'); api('/api/pengaturan').then(p=>{ set.value=p; raporTA.value=p.tahun_ajaran_aktif||'2026/2027'; }).catch(()=>{}); api('/api/mapel').then(m=>{ if (Array.isArray(m) && m.length) mapelList = m.map(x=>x.nama); }).catch(()=>{}); }
       // Demo instan via ?demo=1 dari landing — masuk sebagai kepala sekolah demo
-      if (!token.value && new URLSearchParams(location.search).get('demo')) {
-        login.email='kepala@simaka.id'; login.password='kepala123';
-        doLogin();
-      } });
-    return { API, token, user, menuQuran, tingkatList, page, ekskulList, modalEkskul, formEkskul, tambahEkskul, saveEkskul, hapusEkskul, bukaAnggota, modalAnggota, ekskulAktif, anggotaList, anggotaBaru, addAnggota, updateNilaiEkskul, modalNaikKelas, naik, openNaikKelas, doNaikKelas, doLuluskan, loading, toast, toastErr, login, dash, siswa, nilai, hafalan, jadwal, spp, pengeluaran, agenda, pengumuman, users, watch, ref, computed,
+      fetch('/api/health').then(r=>r.json()).then(h=>{ demoOn.value=!!h.demo;
+        if (!token.value && demoOn.value && new URLSearchParams(location.search).get('demo')) {
+          login.email='kepala@simaka.id'; login.password='kepala123';
+          doLogin();
+        }
+      }).catch(()=>{});
+    });
+    return { API, token, user, demoOn, menuQuran, tingkatList, page, ekskulList, modalEkskul, formEkskul, tambahEkskul, saveEkskul, hapusEkskul, bukaAnggota, modalAnggota, ekskulAktif, anggotaList, anggotaBaru, addAnggota, updateNilaiEkskul, modalNaikKelas, naik, openNaikKelas, doNaikKelas, doLuluskan, loading, toast, toastErr, login, dash, siswa, nilai, hafalan, jadwal, spp, pengeluaran, agenda, pengumuman, users, watch, ref, computed,
       kodeRef, salinRef, tour, quickHafalan, kirimLaporanWA, resetWaliToken, waKwitansi, langganan, absSiswa, absGuru, keu, absTanggal, absKelas, absGTanggal, qSiswa, filterKelas, filterKelasN, filterMapel, filterKelasJ, sppBulan, sppStatus,
       pengUraian, pengKategori, pengJumlah, modalSiswa, modalNilai, modalHafalan, modalSPP, modalAgenda, modalPengumuman, modalJadwal, modalUser,
       formSiswa, formNilai, formHafalan, formSPP, formAgenda, formPengumuman, formJadwal, formUser, rapor, raporSiswa, raporTA, modalBulk, bulk,
@@ -1539,7 +1567,7 @@ createApp({
       adminSekolah, adminStats, adminPlan, adminBulan, dark,
       mode, daftar, langganan, modalWA, waList,
  bulanList, mapelList, surahList, kelasList, filteredSiswa, roleLabel, greeting, greetSub, initials, pageTitle, todayID, planLabel, waUpgrade,
- showToast, rp, fmtDate, roleLabelOf, fnum, openRapor, cetakRapor, exportCSV, openBulk, loadBulkSiswa, saveBulk, debouncedSiswa, saveCatatan, loadAdmin, applyPlan, toggleDark,
+ showToast, rp, fmtDate, roleLabelOf, fnum, openRapor, cetakRapor, exportCSV, exportURL, openHtmlURL, openKwitansi, openBulk, loadBulkSiswa, saveBulk, debouncedSiswa, saveCatatan, loadAdmin, applyPlan, toggleDark,
  doLogin, doDaftar, loadNotifWA, logout, load, openSiswa, saveSiswa, delSiswa, saveAbsensi, absenGuru, delData, loadRekap, loadWali, saveWali, waOrtu, waTagihan, waNorm,
       openNilai, saveNilai, saveHafalan, generateSPP, bayarSPP, addPengeluaran, saveAgenda, savePengumuman, delPengumuman, saveJadwal, saveUser, saveSet, savePw, resetPw };
   }

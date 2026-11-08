@@ -1,15 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // ---------- CSV EXPORT ----------
@@ -227,15 +224,7 @@ func handleRaporData(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCetakRapor(w http.ResponseWriter, r *http.Request) {
-	// Token boleh lewat query (?token=) karena dibuka sebagai tab cetak baru
-	if userFromContext(r) == nil {
-		tokStr := r.URL.Query().Get("token")
-		if tokStr != "" {
-			if tok, err := jwt.ParseWithClaims(tokStr, &Claims{}, func(t *jwt.Token) (interface{}, error) { return jwtSecret, nil }); err == nil && tok.Valid {
-				r = r.WithContext(context.WithValue(r.Context(), userKey, tok.Claims.(*Claims)))
-			}
-		}
-	}
+	// Hanya lewat authMiddleware (header Authorization); tidak ada lagi token via query.
 	c := userFromContext(r)
 	if c == nil {
 		http.Error(w, "Unauthorized", 401)

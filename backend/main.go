@@ -59,6 +59,9 @@ func main() {
 	if err := migrateTenants(); err != nil {
 		log.Fatal("migrate tenants: ", err)
 	}
+	if err := migrateShares(); err != nil {
+		log.Fatal("migrate shares: ", err)
+	}
 	if err := seed(); err != nil {
 		log.Fatal("seed: ", err)
 	}

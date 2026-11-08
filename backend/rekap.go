@@ -6,10 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
-	"context"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 
@@ -145,17 +141,13 @@ func bulanNumName(bulan string) string {
 // Halaman HTML siap cetak (print-friendly, thermal & A5), token di URL seperti rapor-cetak.
 
 func handleKwitansi(w http.ResponseWriter, r *http.Request) {
-	c := userFromContext(r)
-	if c == nil {
-		tokStr := r.URL.Query().Get("token")
-		if tokStr != "" {
-			if tok, err := jwt.ParseWithClaims(tokStr, &Claims{}, func(t *jwt.Token) (interface{}, error) { return jwtSecret, nil }); err == nil && tok.Valid {
-				r = r.WithContext(context.WithValue(r.Context(), userKey, tok.Claims.(*Claims)))
-			}
-		}
+	sekolahID := 0
+	if c := userFromContext(r); c != nil {
+		sekolahID = c.SekolahID
+	} else {
+		sekolahID = shareFromContext(r) // token bagikan (?share=), bukan JWT
 	}
-	c2 := userFromContext(r)
-	if c2 == nil {
+	if sekolahID == 0 {
 		http.Error(w, "Unauthorized", 401)
 		return
 	}
@@ -169,7 +161,7 @@ func handleKwitansi(w http.ResponseWriter, r *http.Request) {
 		JOIN siswa s ON s.id=sp.siswa_id
 		LEFT JOIN users u ON u.id=sp.petugas_id
 		JOIN pengaturan sk ON sk.id=$2
-		WHERE sp.id=$1 AND sp.status='lunas' AND s.sekolah_id=$2`, id, c2.SekolahID).
+		WHERE sp.id=$1 AND sp.status='lunas' AND s.sekolah_id=$2`, id, sekolahID).
 		Scan(&nama, &kelas, &bulan, &tahun, &tglBayar, &metode, &petugas, &namaSekolah, &alamat, &kepala, &sid, &jumlah)
 	if err != nil {
 		http.Error(w, "Kwitansi tidak ditemukan (SPP belum lunas?)", 404)
