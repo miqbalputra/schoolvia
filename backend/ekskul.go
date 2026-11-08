@@ -179,6 +179,10 @@ func handleNaikKelas(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, 400, "Tingkat asal dan tingkat tujuan wajib diisi (mis. 7 → 8)")
 		return
 	}
+	if !isDigits(in.Dari) || !isDigits(in.Ke) {
+		jsonErr(w, 400, "Tingkat asal dan tujuan harus berupa angka (mis. 7 dan 8)")
+		return
+	}
 	// update kelas: ganti prefix tingkat, sisakan huruf paralel
 	tag, err := db.Exec(`UPDATE siswa SET kelas = $2 || SUBSTRING(kelas FROM LENGTH($1)+1)
 		WHERE sekolah_id=$3 AND status='aktif' AND kelas LIKE $1 || '%'`,
@@ -200,6 +204,10 @@ func handleLuluskan(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&in)
 	if in.Tingkat == "" {
 		jsonErr(w, 400, "Tingkat kelas akhir wajib diisi (mis. 6 untuk SD)")
+		return
+	}
+	if !isDigits(in.Tingkat) {
+		jsonErr(w, 400, "Tingkat kelas akhir harus berupa angka (mis. 6)")
 		return
 	}
 	tag, err := db.Exec(`UPDATE siswa SET status='lulus'

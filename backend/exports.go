@@ -12,6 +12,20 @@ import (
 // ---------- CSV EXPORT ----------
 // CSV dipisah ";" dan pakai BOM agar langsung rapi dibuka di Excel Indonesia.
 
+// csvSafe: netralkan formula injection pada sel CSV/Excel — sel yang diawali
+// = + @ tab CR diberi prefix apostrof agar tidak dieksekusi sebagai formula.
+// ('-' sengaja tidak disentuh agar angka negatif tetap terbaca sebagai angka.)
+func csvSafe(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
 func csvResponse(w http.ResponseWriter, name string, header []string, rows [][]string) {
 	var b strings.Builder
 	b.WriteString("\uFEFF") // UTF-8 BOM for Excel
@@ -20,7 +34,7 @@ func csvResponse(w http.ResponseWriter, name string, header []string, rows [][]s
 	for _, r := range rows {
 		quoted := make([]string, len(r))
 		for i, c := range r {
-			quoted[i] = `"` + strings.ReplaceAll(c, `"`, `""`) + `"`
+			quoted[i] = `"` + strings.ReplaceAll(csvSafe(c), `"`, `""`) + `"`
 		}
 		b.WriteString(strings.Join(quoted, ";"))
 		b.WriteString("\r\n")
