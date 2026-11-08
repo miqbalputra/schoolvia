@@ -29,8 +29,6 @@ func migrateTenants() error {
 		// Kolom sekolah_id (default 1 = instalasi utama)
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`,
-		`ALTER TABLE siswa DROP CONSTRAINT IF EXISTS siswa_nis_key`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_siswa_nis_per_sekolah ON siswa (sekolah_id, nis) WHERE nis IS NOT NULL`,
 		// Kolom sekolah untuk pivot P1/P2 (sebelumnya tidak ada → INSERT handleDaftar selalu gagal ke fallback)
 		`ALTER TABLE sekolah ADD COLUMN IF NOT EXISTS jenis TEXT NOT NULL DEFAULT 'islam' CHECK (jenis IN ('umum','islam'))`,
 		`ALTER TABLE sekolah ADD COLUMN IF NOT EXISTS jenjang TEXT DEFAULT ''`,
@@ -63,6 +61,9 @@ func migrateTenants() error {
 		`ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
 		`CREATE INDEX IF NOT EXISTS idx_siswa_sekolah ON siswa(sekolah_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_spp_sekolah ON spp(sekolah_id)`,
+		// setelah semua ALTER ADD COLUMN sekolah_id: NIS unik per sekolah
+		`ALTER TABLE siswa DROP CONSTRAINT IF EXISTS siswa_nis_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_siswa_nis_per_sekolah ON siswa (sekolah_id, nis) WHERE nis IS NOT NULL`,
 		// Registrasi instalasi utama sebagai sekolah 1, lalu majukan sequence
 		`INSERT INTO sekolah (id, subdomain, nama, status)
 		 VALUES (1, 'utama', 'Griya Quran Tunas Ilmu', 'aktif') ON CONFLICT (id) DO NOTHING`,
