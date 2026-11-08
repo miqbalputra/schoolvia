@@ -131,6 +131,8 @@ export DATABASE_URL='postgres://simaka:simaka123@localhost:5432/simaka?sslmode=d
 | `FRONTEND_DIR` | otomatis (relatif ke executable, lalu `../frontend`) | Lokasi direktori frontend yang disajikan server |
 | `ALLOW_INSECURE_DEFAULT_DSN` | `0` | Bila `1`, izinkan DSN default lokal tanpa password aman — **jangan dipakai di produksi** |
 
+| `TEST_DATABASE_URL` | — | Hanya untuk test: bila di-set, `go test ./...` di `backend/` menjalankan test integrasi lintas-tenant dengan PostgreSQL asli (CI memakainya via service container). Tanpa env ini, test integrasi di-skip otomatis. |
+
 > ⚠️ Sebelum go-live: ganti nomor WhatsApp placeholder `6281234567890` (README & `WA_SUPPORT_PLACEHOLDER` di `frontend/index.html`) dengan nomor resmi Anda.
 
 ### 3️⃣ Masuk

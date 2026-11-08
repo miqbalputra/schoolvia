@@ -134,8 +134,6 @@ func migrate() error {
 			jumlah_default NUMERIC(12,2) DEFAULT 45000
 		)`,
 		`INSERT INTO spp_setting (id) VALUES (1) ON CONFLICT DO NOTHING`,
-		// SPP default kini per-sekolah: pengaturan.spp_default (migrasi 2026-11)
-		`ALTER TABLE pengaturan ADD COLUMN IF NOT EXISTS spp_default NUMERIC(12,2) NOT NULL DEFAULT 45000`,
 		`CREATE TABLE IF NOT EXISTS pengaturan (
 			id SERIAL PRIMARY KEY,
 			nama_sekolah TEXT DEFAULT 'Griya Qur''an Tunas Ilmu',
@@ -146,6 +144,8 @@ func migrate() error {
 			semester_aktif TEXT DEFAULT 'ganjil'
 		)`,
 		`INSERT INTO pengaturan (id, nama_sekolah) VALUES (1, 'Sekolah Saya') ON CONFLICT DO NOTHING`,
+		// SPP default kini per-sekolah: pengaturan.spp_default (migrasi 2026-11) — setelah tabel pengaturan dibuat
+		`ALTER TABLE pengaturan ADD COLUMN IF NOT EXISTS spp_default NUMERIC(12,2) NOT NULL DEFAULT 45000`,
 		// pengaturan per sekolah (id = sekolah.id) dibuat otomatis di handleDaftar
 		`DROP TABLE IF EXISTS login_fails`,
 		`CREATE TABLE IF NOT EXISTS login_fails (
@@ -169,19 +169,6 @@ func migrate() error {
 			prestasi TEXT DEFAULT '',
 			wali_id INT REFERENCES users(id),
 			UNIQUE(siswa_id, tahun_ajaran)
-		)`,
-		`CREATE TABLE IF NOT EXISTS mapel (
-			id SERIAL PRIMARY KEY,
-			sekolah_id INT NOT NULL REFERENCES sekolah(id) ON DELETE CASCADE,
-			nama TEXT NOT NULL,
-			jenjang TEXT,
-			UNIQUE(sekolah_id, nama)
-		)`,
-		`CREATE TABLE IF NOT EXISTS kelas_tingkat (
-			id SERIAL PRIMARY KEY,
-			sekolah_id INT NOT NULL REFERENCES sekolah(id) ON DELETE CASCADE,
-			tingkat TEXT NOT NULL,
-			UNIQUE(sekolah_id, tingkat)
 		)`,
 		`CREATE TABLE IF NOT EXISTS wali_token (
 			id SERIAL PRIMARY KEY,
