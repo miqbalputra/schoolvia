@@ -13,6 +13,7 @@ import (
 func registerRoutes(mux *http.ServeMux) {
 	// Public
 	mux.HandleFunc("POST /api/login", handleLogin)
+	mux.HandleFunc("POST /api/logout", handleLogout)
 	mux.HandleFunc("POST /api/daftar", handleDaftar)
 	mux.HandleFunc("GET /api/manifest", handleManifest)
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
@@ -120,8 +121,8 @@ func registerRoutes(mux *http.ServeMux) {
 	api.Handle("GET /api/pengaturan", authMiddleware(http.HandlerFunc(handleGetPengaturan)))
 	api.Handle("PUT /api/pengaturan", authMiddleware(writeGuard(roleMW(handleUpdatePengaturan, "kepala_sekolah", "tu"))))
 
-	// Reset password (kepala sekolah)
-	api.Handle("POST /api/users/{id}/reset-password", authMiddleware(writeGuard(roleMW(handleResetPassword, "kepala_sekolah", "tu"))))
+	// Reset password (khusus kepala sekolah)
+	api.Handle("POST /api/users/{id}/reset-password", authMiddleware(writeGuard(roleMW(handleResetPassword, "kepala_sekolah"))))
 
 	// Ubah password sendiri
 	api.Handle("POST /api/ubah-password", authMiddleware(writeGuard(roleMW(handleUbahPassword, "kepala_sekolah", "guru", "tu"))))
@@ -233,8 +234,8 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	var u User
 	var hash string
 	var sekolahID int
-	err := db.QueryRow(`SELECT id,nama,email,role,COALESCE(nip,'-'),password,COALESCE(sekolah_id,1) FROM users WHERE email=$1`, email).
-		Scan(&u.ID, &u.Nama, &u.Email, &u.Role, &u.NIP, &hash, &sekolahID)
+	err := db.QueryRow(`SELECT id,nama,email,role,COALESCE(nip,'-'),password,COALESCE(sekolah_id,0),token_version FROM users WHERE email=$1`, email).
+		Scan(&u.ID, &u.Nama, &u.Email, &u.Role, &u.NIP, &hash, &sekolahID, &u.TokenVersion)
 	u.SekolahID = sekolahID
 	if err != nil {
 		checkPass(dummyHash, in.Password) // anti user-enumeration via timing
@@ -243,6 +244,11 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !checkPass(hash, in.Password) {
+		loginRecordFail(key)
+		jsonErr(w, 401, "Email atau password salah")
+		return
+	}
+	if u.Role != "platform" && u.SekolahID == 0 {
 		loginRecordFail(key)
 		jsonErr(w, 401, "Email atau password salah")
 		return
@@ -264,8 +270,13 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	loginRecordSuccess(key)
 	tok, _ := makeToken(&u)
+	http.SetCookie(w, &http.Cookie{
+		Name: "sv_session", Value: tok, Path: "/", HttpOnly: true,
+		SameSite: http.SameSiteStrictMode, MaxAge: 72 * 3600,
+		Secure:   os.Getenv("COOKIE_SECURE") == "1",
+	})
 	logActivity(u.ID, "login", "Login berhasil")
-	respond(w, 200, map[string]interface{}{"token": tok, "user": u})
+	respond(w, 200, map[string]interface{}{"user": u})
 }
 
 func handleMe(w http.ResponseWriter, r *http.Request) {
@@ -349,7 +360,13 @@ func sval(m map[string]interface{}, k string) string {
 }
 
 func handleCreateSiswa(w http.ResponseWriter, r *http.Request, c *Claims) {
-	if msg := cekKuota(c.SekolahID, "siswa"); msg != "" {
+	tx, err := db.Begin()
+	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	defer tx.Rollback()
+	if msg := cekKuota(tx, c.SekolahID, "siswa"); msg != "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(402)
 		json.NewEncoder(w).Encode(map[string]string{"error": msg})
@@ -361,9 +378,13 @@ func handleCreateSiswa(w http.ResponseWriter, r *http.Request, c *Claims) {
 		return
 	}
 	var id int
-	err = db.QueryRow(`INSERT INTO siswa (nis,nisn,nama,jk,kelas,tgl_lahir,alamat,nama_ortu,hp_ortu,sekolah_id) VALUES (NULLIF($1,''),NULLIF($2,''),$3,NULLIF($4,''),$5,NULLIF($6,'')::DATE,NULLIF($7,''),NULLIF($8,''),NULLIF($9,''),$10) RETURNING id`,
+	err = tx.QueryRow(`INSERT INTO siswa (nis,nisn,nama,jk,kelas,tgl_lahir,alamat,nama_ortu,hp_ortu,sekolah_id) VALUES (NULLIF($1,''),NULLIF($2,''),$3,NULLIF($4,''),$5,NULLIF($6,'')::DATE,NULLIF($7,''),NULLIF($8,''),NULLIF($9,''),$10) RETURNING id`,
 		sval(in, "nis"), sval(in, "nisn"), sval(in, "nama"), sval(in, "jk"), sval(in, "kelas"), sval(in, "tgl_lahir"), sval(in, "alamat"), sval(in, "nama_ortu"), sval(in, "hp_ortu"), c.SekolahID).Scan(&id)
 	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
 		jsonErr(w, 500, userErr(err))
 		return
 	}
@@ -513,10 +534,13 @@ func handleAbsenMasuk(w http.ResponseWriter, r *http.Request, c *Claims) {
 }
 
 func handleAbsenPulang(w http.ResponseWriter, r *http.Request, c *Claims) {
-	_, err := db.Exec(`INSERT INTO absensi_guru (guru_id,tanggal,jam_masuk,status) VALUES ($1,CURRENT_DATE,CURRENT_TIME,'hadir')
-		ON CONFLICT (guru_id,tanggal) DO UPDATE SET jam_pulang=CURRENT_TIME`, c.UserID)
+	res, err := db.Exec(`UPDATE absensi_guru SET jam_pulang=CURRENT_TIME WHERE guru_id=$1 AND tanggal=CURRENT_DATE AND jam_masuk IS NOT NULL`, c.UserID)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		jsonErr(w, 400, "Belum ada absen masuk hari ini — silakan absen masuk lebih dulu.")
 		return
 	}
 	respond(w, 200, map[string]string{"ok": "1"})
@@ -718,6 +742,21 @@ func handleGenerateSPP(w http.ResponseWriter, r *http.Request, c *Claims) {
 		jsonErr(w, 400, "Bulan dan tahun wajib")
 		return
 	}
+	validBulan := false
+	for _, b := range bulanID {
+		if b == in.Bulan {
+			validBulan = true
+			break
+		}
+	}
+	if !validBulan || len(in.Tahun) != 4 || !isDigits(in.Tahun) {
+		jsonErr(w, 400, "Bulan harus nama bulan Indonesia (mis. November) dan tahun 4 digit (mis. 2026)")
+		return
+	}
+	if in.Jumlah < 0 {
+		jsonErr(w, 400, "Jumlah tagihan tidak boleh negatif")
+		return
+	}
 	if in.Jumlah == 0 {
 		db.QueryRow(`SELECT COALESCE(spp_default,45000) FROM pengaturan WHERE id=$1`, c.SekolahID).Scan(&in.Jumlah)
 	}
@@ -763,9 +802,13 @@ func handleBayarSPP(w http.ResponseWriter, r *http.Request, c *Claims) {
 	if in.Metode == "" {
 		in.Metode = "tunai"
 	}
-	_, err := db.Exec(`UPDATE spp SET status='lunas', tgl_bayar=CURRENT_DATE, metode=$1, petugas_id=$2 WHERE id=$3 AND sekolah_id=$4`, in.Metode, c.UserID, id, c.SekolahID)
+	res, err := db.Exec(`UPDATE spp SET status='lunas', tgl_bayar=CURRENT_DATE, metode=$1, petugas_id=$2 WHERE id=$3 AND sekolah_id=$4`, in.Metode, c.UserID, id, c.SekolahID)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		jsonErr(w, 404, "Tagihan tidak ditemukan")
 		return
 	}
 	respond(w, 200, map[string]string{"ok": "1"})
@@ -1002,7 +1045,13 @@ func handleListUsers(w http.ResponseWriter, r *http.Request, c *Claims) {
 }
 
 func handleCreateUser(w http.ResponseWriter, r *http.Request, c *Claims) {
-	if msg := cekKuota(c.SekolahID, "user"); msg != "" {
+	tx, err := db.Begin()
+	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	defer tx.Rollback()
+	if msg := cekKuota(tx, c.SekolahID, "user"); msg != "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(402)
 		json.NewEncoder(w).Encode(map[string]string{"error": msg})
@@ -1016,6 +1065,10 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request, c *Claims) {
 		jsonErr(w, 400, "Nama, email, password wajib")
 		return
 	}
+	if len(in.Password) < 8 {
+		jsonErr(w, 400, "Password minimal 8 karakter")
+		return
+	}
 	if in.Role != "kepala_sekolah" && in.Role != "guru" && in.Role != "tu" {
 		jsonErr(w, 400, "Role tidak valid")
 		return
@@ -1025,10 +1078,14 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request, c *Claims) {
 		jsonErr(w, 403, "Hanya kepala sekolah yang dapat membuat akun kepala sekolah")
 		return
 	}
-	_, err := db.Exec(`INSERT INTO users (nama,email,password,role,nip,sekolah_id) VALUES ($1,$2,$3,$4,NULLIF($5,'-'),$6)`,
+	_, err = tx.Exec(`INSERT INTO users (nama,email,password,role,nip,sekolah_id) VALUES ($1,$2,$3,$4,NULLIF($5,'-'),$6)`,
 		in.Nama, strings.ToLower(in.Email), hashPass(in.Password), in.Role, in.NIP, c.SekolahID)
 	if err != nil {
 		jsonErr(w, 409, userErr(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		jsonErr(w, 500, userErr(err))
 		return
 	}
 	respond(w, 201, map[string]string{"ok": "1"})

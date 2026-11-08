@@ -199,7 +199,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 <body>
 <div id="app">
   <!-- LOGIN -->
-  <div v-if="token && tour" class="tour-bg" @click.self="tour=null">
+  <div v-if="loggedIn && tour" class="tour-bg" @click.self="tour=null">
       <div class="tour-card">
         <div class="tour-n">Langkah {{tour}} dari 4</div>
         <template v-if="tour===1"><h3>🎓 Selamat datang di SchoolVia!</h3><p>Ini dashboard sekolah Anda. Semua menu ada di sidebar kiri (atau di bawah kalau pakai HP).</p></template>
@@ -213,8 +213,8 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
         </div>
       </div>
     </div>
-    <a v-if="token" href="https://wa.me/6281234567890?text=Assalamualaikum%2C%20saya%20butuh%20bantuan%20SchoolVia" target="_blank" class="wa-float" title="Butuh bantuan? Chat kami via WhatsApp">💬 <span>Bantuan</span></a>
-  <div v-if="!token" class="login-wrap">
+    <a v-if="loggedIn" href="https://wa.me/6281234567890?text=Assalamualaikum%2C%20saya%20butuh%20bantuan%20SchoolVia" target="_blank" class="wa-float" title="Butuh bantuan? Chat kami via WhatsApp">💬 <span>Bantuan</span></a>
+  <div v-if="!loggedIn" class="login-wrap">
   <div class="login-card">
     <div class="login-hero">
       <h1>🎓 SchoolVia</h1>
@@ -1108,7 +1108,7 @@ const { createApp, ref, computed, onMounted, watch } = Vue;
 createApp({
   setup() {
     const API = location.origin; // API & frontend served from same origin via Go
-    const token = ref(localStorage.getItem('simaka_token') || '');
+    const loggedIn = ref(!!localStorage.getItem('simaka_user'));
     const demoOn = ref(false);
     const user = ref(JSON.parse(localStorage.getItem('simaka_user') || 'null') || {});
     const menuQuran = computed(() => (user.value.jenis || 'islam') === 'islam'); // default islam utk user lama
@@ -1165,7 +1165,7 @@ createApp({
       if(f.size > 5*1024*1024){ importErr.value='File terlalu besar (maksimal 5 MB).'; return; }
       const fd = new FormData(); fd.append('file', f);
       try {
-        const res = await fetch(API+'/import/preview', { method:'POST', headers:{Authorization:'Bearer '+token.value}, body:fd });
+        const res = await fetch(API+'/import/preview', { method:'POST', body:fd });
         const d = await res.json();
         if(!res.ok){ importErr.value = d.error || 'File tidak terbaca.'; return; }
         importHeader.value = d.header; importPreview.value = d.preview; importTotal.value = d.total;
@@ -1280,7 +1280,7 @@ createApp({
     function roleLabelOf(r){ return ({kepala_sekolah:'Kepala Sekolah', guru:'Guru', tu:'Tata Usaha'})[r] || r; }
 
     async function api(path, opts={}) {
-      const headers = {'Content-Type':'application/json', ...(token.value ? {Authorization:'Bearer '+token.value} : {})};
+      const headers = {'Content-Type':'application/json'};
       const res = await fetch(API + path, {...opts, headers});
       if (res.status === 401) { logout(); throw new Error('Sesi berakhir'); }
       const data = await res.json();
@@ -1311,8 +1311,8 @@ createApp({
       loading.value = true;
       try {
         const r = await api('/api/login', {method:'POST', body: JSON.stringify(login.value)});
-        token.value = r.token; user.value = r.user;
-        localStorage.setItem('simaka_token', r.token);
+        user.value = r.user; loggedIn.value = true;
+        localStorage.setItem('simaka_user', JSON.stringify(r.user));
         api('/api/me').then(me => { user.value = Object.assign({}, user.value, me); localStorage.setItem('simaka_user', JSON.stringify(user.value)); }).catch(()=>{});
         showToast('Selamat datang, '+r.user.nama.split(',')[0]+'! 🎉');
         load('dashboard');
@@ -1338,7 +1338,7 @@ createApp({
         waList.value = r.pesan; modalWA.value = true;
       } catch(e){ showToast(e.message, true); }
     }
-    function logout(){ token.value=''; user.value={}; localStorage.removeItem('simaka_token'); localStorage.removeItem('simaka_user'); }
+    async function logout(){ try { await fetch('/api/logout', {method:'POST'}); } catch(e){} user.value={}; loggedIn.value=false; localStorage.removeItem('simaka_user'); }
 
     // === Rapor, ekspor, nilai massal ===
     function fnum(v){ return v == null ? '-' : Number(v).toFixed(1); }
@@ -1395,25 +1395,25 @@ createApp({
       const base = {absensi:'/api/export/absensi?bulan=', spp:'/api/export/spp', nilai:'/api/export/nilai', keuangan:'/api/export/keuangan'}[jenis];
       let url = base;
       if (jenis==='absensi') { const d=absTanggal.value||''; url += d.slice(0,7); }
-      fetch(url, {headers:{Authorization:'Bearer '+token.value}})
+      fetch(url)
         .then(async r => { if(!r.ok) throw new Error('Gagal ekspor'); const b=await r.blob();
           const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='rekap-'+jenis+'.csv'; a.click(); })
         .catch(e=>showToast(e.message,true));
     }
-    // Unduh via fetch + Authorization header — token tidak pernah muncul di URL
+    // Unduh via fetch (sesi httpOnly cookie, same-origin) — token tidak pernah muncul di URL
     async function exportURL(url, filename){
       try {
-        const r = await fetch(url, {headers:{Authorization:'Bearer '+token.value}});
+        const r = await fetch(url);
         if(!r.ok) throw new Error('Gagal ekspor');
         const b = await r.blob();
         const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=filename; a.click();
         setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
       } catch(e){ showToast(e.message,true); }
     }
-    // Buka halaman HTML (kwitansi/rapor-cetak) via fetch agar token tetap di header
+    // Buka halaman HTML (kwitansi/rapor-cetak) via fetch (sesi cookie)
     async function openHtmlURL(url){
       try {
-        const r = await fetch(url, {headers:{Authorization:'Bearer '+token.value}});
+        const r = await fetch(url);
         if(!r.ok) throw new Error('Gagal membuka halaman');
         const b = await r.blob();
         window.open(URL.createObjectURL(b), '_blank');
@@ -1550,16 +1550,16 @@ createApp({
     watch(page, (p)=>{ if(p) load(p); if(p==='rekap') loadRekap(); if(p==='wali') loadWali(); if(p==='admin') loadAdmin();
       if(p==='upgrade') api('/api/kode-ref').then(k=>{ kodeRef.value=k.kode_ref||''; }).catch(()=>{}); });
 
-    onMounted(() => { if (token.value) { load('dashboard'); api('/api/pengaturan').then(p=>{ set.value=p; raporTA.value=p.tahun_ajaran_aktif||'2026/2027'; }).catch(()=>{}); api('/api/mapel').then(m=>{ if (Array.isArray(m) && m.length) mapelList = m.map(x=>x.nama); }).catch(()=>{}); }
+    onMounted(() => { if (loggedIn.value) { load('dashboard'); api('/api/pengaturan').then(p=>{ set.value=p; raporTA.value=p.tahun_ajaran_aktif||'2026/2027'; }).catch(()=>{}); api('/api/mapel').then(m=>{ if (Array.isArray(m) && m.length) mapelList = m.map(x=>x.nama); }).catch(()=>{}); }
       // Demo instan via ?demo=1 dari landing — masuk sebagai kepala sekolah demo
       fetch('/api/health').then(r=>r.json()).then(h=>{ demoOn.value=!!h.demo;
-        if (!token.value && demoOn.value && new URLSearchParams(location.search).get('demo')) {
+        if (!loggedIn.value && demoOn.value && new URLSearchParams(location.search).get('demo')) {
           login.email='kepala@simaka.id'; login.password='kepala123';
           doLogin();
         }
       }).catch(()=>{});
     });
-    return { API, token, user, demoOn, menuQuran, tingkatList, page, ekskulList, modalEkskul, formEkskul, tambahEkskul, saveEkskul, hapusEkskul, bukaAnggota, modalAnggota, ekskulAktif, anggotaList, anggotaBaru, addAnggota, updateNilaiEkskul, modalNaikKelas, naik, openNaikKelas, doNaikKelas, doLuluskan, loading, toast, toastErr, login, dash, siswa, nilai, hafalan, jadwal, spp, pengeluaran, agenda, pengumuman, users, watch, ref, computed,
+    return { API, loggedIn, user, demoOn, menuQuran, tingkatList, page, ekskulList, modalEkskul, formEkskul, tambahEkskul, saveEkskul, hapusEkskul, bukaAnggota, modalAnggota, ekskulAktif, anggotaList, anggotaBaru, addAnggota, updateNilaiEkskul, modalNaikKelas, naik, openNaikKelas, doNaikKelas, doLuluskan, loading, toast, toastErr, login, dash, siswa, nilai, hafalan, jadwal, spp, pengeluaran, agenda, pengumuman, users, watch, ref, computed,
       kodeRef, salinRef, tour, quickHafalan, kirimLaporanWA, resetWaliToken, waKwitansi, langganan, absSiswa, absGuru, keu, absTanggal, absKelas, absGTanggal, qSiswa, filterKelas, filterKelasN, filterMapel, filterKelasJ, sppBulan, sppStatus,
       pengUraian, pengKategori, pengJumlah, modalSiswa, modalNilai, modalHafalan, modalSPP, modalAgenda, modalPengumuman, modalJadwal, modalUser,
       formSiswa, formNilai, formHafalan, formSPP, formAgenda, formPengumuman, formJadwal, formUser, rapor, raporSiswa, raporTA, modalBulk, bulk,

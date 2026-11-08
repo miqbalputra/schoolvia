@@ -78,7 +78,7 @@ func handleResetPassword(w http.ResponseWriter, r *http.Request, c *Claims) {
 	}
 	newPass := randPassword()
 	hash, _ := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
-	res, err := db.Exec(`UPDATE users SET password=$1 WHERE id=$2`, string(hash), id)
+	res, err := db.Exec(`UPDATE users SET password=$1, token_version=token_version+1 WHERE id=$2`, string(hash), id)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
 		return
@@ -98,8 +98,8 @@ func handleUbahPassword(w http.ResponseWriter, r *http.Request, c *Claims) {
 		Lama, Baru string
 	}
 	json.NewDecoder(r.Body).Decode(&in)
-	if len(in.Baru) < 6 {
-		jsonErr(w, 400, "Password baru minimal 6 karakter")
+	if len(in.Baru) < 8 {
+		jsonErr(w, 400, "Password baru minimal 8 karakter")
 		return
 	}
 	if c.UserID == 0 {
@@ -116,7 +116,7 @@ func handleUbahPassword(w http.ResponseWriter, r *http.Request, c *Claims) {
 		return
 	}
 	newHash, _ := bcrypt.GenerateFromPassword([]byte(in.Baru), bcrypt.DefaultCost)
-	db.Exec(`UPDATE users SET password=$1 WHERE id=$2`, string(newHash), c.UserID)
+	db.Exec(`UPDATE users SET password=$1, token_version=token_version+1 WHERE id=$2`, string(newHash), c.UserID)
 	logActivity(c.UserID, "ubah_password", "Mengubah password sendiri")
 	respond(w, 200, map[string]string{"ok": "1"})
 }

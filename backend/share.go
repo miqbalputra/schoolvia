@@ -39,7 +39,7 @@ func kwitansiShareCheck(tok string, sppID int) (int, bool) {
 // authOrShare: lolos bila ada JWT valid di header, ATAU token bagikan kwitansi valid (?share=).
 func authOrShare(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if c := claimsFromRequest(r); c != nil {
+		if c := claimsFromRequest(r); c != nil && tokenVersionOK(c.UserID, c.TokenVersion) {
 			r = r.WithContext(contextWithUser(r, c))
 			next.ServeHTTP(w, r)
 			return

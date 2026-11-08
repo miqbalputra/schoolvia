@@ -19,7 +19,7 @@ func migrate() error {
 		)`,
 		`CREATE TABLE IF NOT EXISTS siswa (
 			id SERIAL PRIMARY KEY,
-			nis TEXT UNIQUE,
+			nis TEXT,
 			nisn TEXT,
 			nama TEXT NOT NULL,
 			jk TEXT CHECK (jk IN ('L','P')),
@@ -137,7 +137,7 @@ func migrate() error {
 		// SPP default kini per-sekolah: pengaturan.spp_default (migrasi 2026-11)
 		`ALTER TABLE pengaturan ADD COLUMN IF NOT EXISTS spp_default NUMERIC(12,2) NOT NULL DEFAULT 45000`,
 		`CREATE TABLE IF NOT EXISTS pengaturan (
-			id SERIAL PRIMARY KEY CHECK (id = 1),
+			id SERIAL PRIMARY KEY,
 			nama_sekolah TEXT DEFAULT 'Griya Qur''an Tunas Ilmu',
 			alamat TEXT DEFAULT '',
 			npsn TEXT DEFAULT '',
@@ -213,6 +213,9 @@ func seed() error {
 	pass := os.Getenv("ADMIN_PASSWORD")
 	if email == "" || pass == "" {
 		return fmt.Errorf("tabel users masih kosong: set SEED_DEMO=1 untuk menanam data demo, atau set ADMIN_EMAIL dan ADMIN_PASSWORD untuk membuat akun kepala sekolah pertama")
+	}
+	if len(pass) < 8 {
+		return fmt.Errorf("ADMIN_PASSWORD minimal 8 karakter")
 	}
 	_, err := db.Exec(`INSERT INTO users (nama,email,password,role,sekolah_id) VALUES ('Kepala Sekolah', $1, $2, 'kepala_sekolah', 1)`,
 		strings.ToLower(email), hashPass(pass))
