@@ -61,11 +61,11 @@ func handleExportAll(w http.ResponseWriter, r *http.Request) {
 	}{
 		{"siswa", `SELECT id, nis, nama, jk, kelas, nama_ortu, hp_ortu, status FROM siswa WHERE sekolah_id=$1 ORDER BY id`},
 		{"nilai", `SELECT n.id, s.nama AS siswa, n.mapel, n.jenis, n.nilai, n.tahun_ajaran, n.semester FROM nilai n JOIN siswa s ON s.id=n.siswa_id WHERE n.sekolah_id=$1 ORDER BY n.id`},
-		{"hafalan", `SELECT h.id, s.nama AS siswa, h.surah, h.ayat, h.status, h.catatan, to_char(h.tanggal,'YYYY-MM-DD') FROM hafalan h JOIN siswa s ON s.id=h.siswa_id WHERE h.sekolah_id=$1 ORDER BY h.id`},
+		{"hafalan", `SELECT h.id, s.nama AS siswa, h.surah, h.ayat_dari, h.ayat_sampai, h.status, h.catatan, to_char(h.tanggal,'YYYY-MM-DD') FROM hafalan h JOIN siswa s ON s.id=h.siswa_id WHERE h.sekolah_id=$1 ORDER BY h.id`},
 		{"absensi", `SELECT a.id, s.nama AS siswa, a.tanggal, a.status, COALESCE(a.keterangan,'') FROM absensi_siswa a JOIN siswa s ON s.id=a.siswa_id WHERE a.sekolah_id=$1 ORDER BY a.id`},
 		{"spp", `SELECT sp.id, s.nama AS siswa, sp.bulan, sp.tahun, sp.jumlah, sp.status, COALESCE(to_char(sp.tgl_bayar,'YYYY-MM-DD'),'-') FROM spp sp JOIN siswa s ON s.id=sp.siswa_id WHERE sp.sekolah_id=$1 ORDER BY sp.id`},
-		{"pengeluaran", `SELECT id, keterangan, jumlah, to_char(tanggal,'YYYY-MM-DD') FROM pengeluaran WHERE sekolah_id=$1 ORDER BY id`},
-		{"users", `SELECT id, nama, email, role, status FROM users WHERE sekolah_id=$1 ORDER BY id`},
+		{"pengeluaran", `SELECT id, uraian, kategori, jumlah, to_char(tanggal,'YYYY-MM-DD') FROM pengeluaran WHERE sekolah_id=$1 ORDER BY id`},
+		{"users", `SELECT id, nama, email, role FROM users WHERE sekolah_id=$1 ORDER BY id`},
 	}
 
 	w.Header().Set("Content-Type", "application/zip")
@@ -74,10 +74,12 @@ func handleExportAll(w http.ResponseWriter, r *http.Request) {
 	zw := zip.NewWriter(w)
 	defer zw.Close()
 
+	var gagal []string
 	for _, t := range tables {
 		rows, err := db.Query(t.query, sid)
 		if err != nil {
-			continue // tabel mungkin belum ada di instalasi lama — lewati
+			gagal = append(gagal, t.nama+": "+err.Error())
+			continue
 		}
 		cols, _ := rows.Columns()
 		var sb strings.Builder
@@ -111,6 +113,10 @@ func handleExportAll(w http.ResponseWriter, r *http.Request) {
 		}
 		fw.Write([]byte(sb.String()))
 		_ = n
+	}
+	if len(gagal) > 0 {
+		fe, _ := zw.Create("ERROR.txt")
+		fe.Write([]byte("PERHATIAN: beberapa tabel gagal diekspor (seharusnya tidak terjadi setelah migrasi):\n" + strings.Join(gagal, "\n") + "\n"))
 	}
 	// README kecil di dalam ZIP
 	rd, _ := zw.Create("BACA-SAYA.txt")

@@ -21,25 +21,18 @@ func waliTokenGet(sekolahID, siswaID int) (string, error) {
 	if err == nil && time.Now().Before(kad) {
 		return tok, nil
 	}
-	// belum ada atau kedaluwarsa → buat baru
+	// belum ada atau kedaluwarsa → buat baru (upsert per siswa, satu token aktif per siswa)
 	tok, err = waliTokenNew()
 	if err != nil {
 		return "", err
 	}
 	kadaluarsa := time.Now().AddDate(0, 3, 0) // 90 hari
-	if err != nil {
-		return "", err
-	}
 	_, err = db.Exec(`INSERT INTO wali_token (siswa_id, sekolah_id, token, kadaluarsa)
 		VALUES ($1,$2,$3,$4)
-		ON CONFLICT (token) DO NOTHING`, siswaID, sekolahID, tok, kadaluarsa)
+		ON CONFLICT (siswa_id, sekolah_id) DO UPDATE SET token=EXCLUDED.token, kadaluarsa=EXCLUDED.kadaluarsa`,
+		siswaID, sekolahID, tok, kadaluarsa)
 	if err != nil {
 		return "", err
-	}
-	// pastikan barisnya ada (ON CONFLICT token sangat kecil kemungkinan; coba baca lagi)
-	err = db.QueryRow(`SELECT token FROM wali_token WHERE siswa_id=$1 AND sekolah_id=$2 AND kadaluarsa > now()`, siswaID, sekolahID).Scan(&tok)
-	if err != nil {
-		return "", fmt.Errorf("gagal membuat token: %v", err)
 	}
 	return tok, nil
 }
