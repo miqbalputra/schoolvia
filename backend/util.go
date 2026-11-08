@@ -22,6 +22,19 @@ func isDigits(s string) bool {
 	return true
 }
 
+// escapeLike: escape wildcard LIKE/ILIKE agar input pencarian diperlakukan literal.
+func escapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}
+
+// validTanggal: format tanggal harus persis YYYY-MM-DD.
+func validTanggal(s string) bool {
+	if len(s) != 10 || s[4] != '-' || s[7] != '-' {
+		return false
+	}
+	return isDigits(s[:4]) && isDigits(s[5:7]) && isDigits(s[8:])
+}
+
 // userErr: terjemahkan error database menjadi pesan manusiawi (bahasa Indonesia)
 func userErr(err error) string {
 	if err == nil {

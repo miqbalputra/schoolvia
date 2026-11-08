@@ -126,6 +126,7 @@ export DATABASE_URL='postgres://simaka:simaka123@localhost:5432/simaka?sslmode=d
 | `SchoolVia_PUBLIC_URL` | `https://sistemflow.com` | URL publik untuk link WA |
 | `SEED_DEMO` | `0` | Bila `1`: seed akun demo (`kepala@simaka.id`/`kepala123`) & aktifkan `?demo=1` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Wajib bila `SEED_DEMO` tidak di-set: membuat akun kepala sekolah pertama pada instalasi baru |
+| `PLATFORM_EMAIL` / `PLATFORM_PASSWORD` | — | Opsional: membuat akun `platform` (panel admin) pada instalasi baru |
 | `TRUSTED_PROXY` | `0` | Bila `1` (di belakang reverse proxy), rate-limit memakai IP terakhir dari `X-Forwarded-For` |
 | `COOKIE_SECURE` | `0` | Bila `1` (wajib di produksi HTTPS), cookie sesi `sv_session` diberi flag `Secure` |
 | `FRONTEND_DIR` | otomatis (relatif ke executable, lalu `../frontend`) | Lokasi direktori frontend yang disajikan server |

@@ -105,6 +105,28 @@ func TestClientIP(t *testing.T) {
 	}
 }
 
+func TestEscapeLike(t *testing.T) {
+	if got := escapeLike(`100%_a\b`); got != `100\%\_a\\b` {
+		t.Errorf("escapeLike salah: %q", got)
+	}
+	if got := escapeLike("biasa"); got != "biasa" {
+		t.Errorf("escapeLike tidak boleh mengubah teks biasa: %q", got)
+	}
+}
+
+func TestValidTanggal(t *testing.T) {
+	for _, ok := range []string{"2026-11-08", "2000-01-01"} {
+		if !validTanggal(ok) {
+			t.Errorf("validTanggal(%q) harus true", ok)
+		}
+	}
+	for _, bad := range []string{"", "2026-11-8", "08-11-2026", "2026/11/08", "2026-13-99", "abc"} {
+		if validTanggal(bad) {
+			t.Errorf("validTanggal(%q) harus false", bad)
+		}
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	h := cors(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }))
 	req := httptest.NewRequest("GET", "/", nil)
