@@ -162,9 +162,6 @@ func readMode(sekolahID int) bool {
 	if status == "trial" && time.Now().After(trialSampai) {
 		return true
 	}
-	if status == "kadarluarsa" {
-		return true
-	}
 	return false
 }
 
@@ -218,16 +215,37 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 	if jenis != "islam" {
 		jenis = "umum"
 	}
-	var sid int
 	refTok, _ := waliTokenNew()
 	kodeRef := "REF" + strings.ToUpper(refTok[:12])
 	jenjang := strings.ToUpper(strings.TrimSpace(in.Jenjang))
 	if jenjang != "SD" && jenjang != "SMP" && jenjang != "SMA" {
 		jenjang = ""
 	}
-	err := db.QueryRow(`INSERT INTO sekolah (subdomain, nama, status, jenis, jenjang, kode_ref, dirujuk_oleh) VALUES ($1,$2,'trial',$3,$4,$5,NULLIF($6,'')) RETURNING id`,
+	// inti pendaftaran (sekolah + langganan + pengaturan + user) dalam satu transaksi
+	tx, err := db.Begin()
+	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	defer tx.Rollback()
+	var sid int
+	err = tx.QueryRow(`INSERT INTO sekolah (subdomain, nama, status, jenis, jenjang, kode_ref, dirujuk_oleh) VALUES ($1,$2,'trial',$3,$4,$5,NULLIF($6,'')) RETURNING id`,
 		in.Subdomain, in.NamaSekolah, jenis, jenjang, kodeRef, strings.TrimSpace(in.KodeRef)).Scan(&sid)
 	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	tx.Exec(`INSERT INTO langganan (sekolah_id, paket, status, catatan) VALUES ($1,'gratis','aktif','Trial 14 hari')`, sid)
+	tx.Exec(`INSERT INTO pengaturan (id, nama_sekolah, tahun_ajaran_aktif) VALUES ($1,$2,'2026/2027') ON CONFLICT DO NOTHING`, sid, in.NamaSekolah)
+	hash, _ := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+	var uid int
+	err = tx.QueryRow(`INSERT INTO users (nama,email,password,role,sekolah_id) VALUES ($1,$2,$3,'kepala_sekolah',$4) RETURNING id`,
+		in.NamaAdmin, strings.ToLower(in.Email), string(hash), sid).Scan(&uid)
+	if err != nil {
+		jsonErr(w, 409, userErr(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
 		jsonErr(w, 500, userErr(err))
 		return
 	}
@@ -249,17 +267,10 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	db.Exec(`INSERT INTO langganan (sekolah_id, paket, status, catatan) VALUES ($1,'gratis','aktif','Trial 14 hari')`, sid)
-	// pengaturan per sekolah (kop kwitansi, tahun ajaran, dsb.)
-	db.Exec(`INSERT INTO pengaturan (id, nama_sekolah, tahun_ajaran_aktif) VALUES ($1,$2,'2026/2027') ON CONFLICT DO NOTHING`, sid, in.NamaSekolah)
 	// P2 pivot: sekolah umum → mapel default Kurikulum Merdeka sesuai jenjang
 	if jenis == "umum" && jenjang != "" {
 		seedKurikulumUmum(sid, jenjang)
 	}
-	hash, _ := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
-	var uid int
-	db.QueryRow(`INSERT INTO users (nama,email,password,role,sekolah_id) VALUES ($1,$2,$3,'kepala_sekolah',$4) RETURNING id`,
-		in.NamaAdmin, strings.ToLower(in.Email), string(hash), sid).Scan(&uid)
 	logActivity(uid, "daftar_sekolah", "Sekolah baru: "+in.NamaSekolah+" (subdomain: "+in.Subdomain+")")
 	if isiDemo {
 		seedDataDemo(sid, uid)

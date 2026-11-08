@@ -206,7 +206,18 @@ func seed() error {
 	}
 	_, err := db.Exec(`INSERT INTO users (nama,email,password,role,sekolah_id) VALUES ('Kepala Sekolah', $1, $2, 'kepala_sekolah', 1)`,
 		strings.ToLower(email), hashPass(pass))
-	return err
+	if err != nil {
+		return err
+	}
+	if pe := strings.TrimSpace(os.Getenv("PLATFORM_EMAIL")); pe != "" {
+		pp := os.Getenv("PLATFORM_PASSWORD")
+		if len(pp) < 8 {
+			return fmt.Errorf("PLATFORM_PASSWORD minimal 8 karakter")
+		}
+		db.Exec(`INSERT INTO users (nama,email,password,role,sekolah_id) VALUES ('Platform Admin', $1, $2, 'platform', NULL) ON CONFLICT (email) DO NOTHING`,
+			strings.ToLower(pe), hashPass(pp))
+	}
+	return nil
 }
 
 func seedDemo() error {

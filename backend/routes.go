@@ -304,8 +304,17 @@ func handleListSiswa(w http.ResponseWriter, r *http.Request) {
 		} else {
 			where += " AND "
 		}
-		args = append(args, "%"+search+"%")
-		where += `(nama ILIKE $` + itoa(len(args)) + ` OR COALESCE(nis,'') ILIKE $` + itoa(len(args)) + `)`
+		args = append(args, "%"+escapeLike(search)+"%")
+		where += `(nama ILIKE $` + itoa(len(args)) + ` ESCAPE '\' OR COALESCE(nis,'') ILIKE $` + itoa(len(args)) + ` ESCAPE '\')`
+	}
+	if st := r.URL.Query().Get("status"); st != "" {
+		if where == "" {
+			where = " WHERE "
+		} else {
+			where += " AND "
+		}
+		args = append(args, st)
+		where += `status=$` + itoa(len(args))
 	}
 	// filter sekolah untuk semua role (multi-tenant isolation)
 	if userFromContext(r) != nil && userFromContext(r).SekolahID > 0 {
@@ -478,6 +487,10 @@ func handleUpsertAbsensiSiswa(w http.ResponseWriter, r *http.Request, c *Claims)
 	json.NewDecoder(r.Body).Decode(&in)
 	if in.Tanggal == "" {
 		in.Tanggal = today()
+	}
+	if !validTanggal(in.Tanggal) {
+		jsonErr(w, 400, "Format tanggal harus YYYY-MM-DD (mis. 2026-11-08)")
+		return
 	}
 	n := 0
 	// verifikasi sekali: semua siswa dalam batch harus milik sekolah yang sama
