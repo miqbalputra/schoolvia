@@ -213,7 +213,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
         </div>
       </div>
     </div>
-    <a v-if="loggedIn" href="https://wa.me/6281234567890?text=Assalamualaikum%2C%20saya%20butuh%20bantuan%20SchoolVia" target="_blank" class="wa-float" title="Butuh bantuan? Chat kami via WhatsApp">💬 <span>Bantuan</span></a>
+    <a v-if="loggedIn" :href="'https://wa.me/'+WA_SUPPORT_PLACEHOLDER+'?text=Assalamualaikum%2C%20saya%20butuh%20bantuan%20SchoolVia'" target="_blank" class="wa-float" title="Butuh bantuan? Chat kami via WhatsApp">💬 <span>Bantuan</span></a>
   <div v-if="!loggedIn" class="login-wrap">
   <div class="login-card">
     <div class="login-hero">
@@ -328,7 +328,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
           <b>Masa trial: sisa {{ langganan.trial_sisa_hari }} hari.</b>
           Setelah trial berakhir, akun otomatis turun ke paket Gratis (maks 30 siswa, 3 pengguna, tanpa ekspor & laporan rekap).
         </div>
-        <a href="https://wa.me/6281234567890?text=Halo%2C%20saya%20mau%20upgrade%20SchoolVia" target="_blank" class="btn" style="text-decoration:none;white-space:nowrap">Upgrade</a>
+        <a :href="'https://wa.me/'+WA_SUPPORT_PLACEHOLDER+'?text=Halo%2C%20saya%20mau%20upgrade%20SchoolVia'" target="_blank" class="btn" style="text-decoration:none;white-space:nowrap">Upgrade</a>
       </div>
 
       <!-- Banner plan gratis: kuota -->
@@ -337,7 +337,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
         <div style="flex:1;font-size:13.5px">
           <b>Paket Gratis</b> — {{ langganan.pakai_siswa }}/{{ langganan.limit_siswa }} siswa · {{ langganan.pakai_user }}/{{ langganan.limit_user }} pengguna · ekspor & laporan rekap terkunci.
         </div>
-        <a href="https://wa.me/6281234567890?text=Halo%2C%20saya%20mau%20upgrade%20SchoolVia" target="_blank" class="btn" style="text-decoration:none;white-space:nowrap">Upgrade</a>
+        <a :href="'https://wa.me/'+WA_SUPPORT_PLACEHOLDER+'?text=Halo%2C%20saya%20mau%20upgrade%20SchoolVia'" target="_blank" class="btn" style="text-decoration:none;white-space:nowrap">Upgrade</a>
       </div>
 
       <!-- DASHBOARD -->
@@ -1230,8 +1230,9 @@ createApp({
     const initials = computed(() => (user.value.nama || '?').split(' ').slice(0,2).map(w=>w[0]).join(''));
     const pages = {dashboard:'Dashboard', siswa:'Data Siswa', absensi:'Absensi Siswa', nilai:'Nilai', rapor:'Rapor Siswa', hafalan:'Setoran Hafalan', jadwal:'Jadwal Pelajaran', 'absensi-guru':'Absensi Guru & Pegawai', spp:'SPP — Pembayaran Siswa', keuangan:'Keuangan Sekolah', agenda:'Agenda Kegiatan', pengumuman:'Pengumuman', users:'Manajemen Pengguna', log:'Log Aktivitas', pengaturan:'Profil Sekolah', akun:'Akun Saya', upgrade:'Paket & Upgrade'};
     const planLabel = computed(() => ({gratis:'🆓 Gratis', sekolah:'🏫 Sekolah', yayasan:'🕌 Yayasan'}[langganan.value.plan] || 'Gratis'));
-    const waUpgrade = 'https://wa.me/6281234567890?text=' + encodeURIComponent('Halo, saya mau upgrade SchoolVia. Sekolah: ' + (user.value ? user.value.nama : '') );
-    const waWaitlist = 'https://wa.me/6281234567890?text=' + encodeURIComponent('Halo, saya mau daftar WAITLIST paket Yayasan SchoolVia (multi-cabang). Sekolah: ' + (user.value ? user.value.nama : '') + '. Kabari saya begitu fiturnya siap.');
+    const WA_SUPPORT_PLACEHOLDER = '6281234567890';
+    const waUpgrade = 'https://wa.me/'+WA_SUPPORT_PLACEHOLDER+'?text=' + encodeURIComponent('Halo, saya mau upgrade SchoolVia. Sekolah: ' + (user.value ? user.value.nama : '') );
+    const waWaitlist = 'https://wa.me/'+WA_SUPPORT_PLACEHOLDER+'?text=' + encodeURIComponent('Halo, saya mau daftar WAITLIST paket Yayasan SchoolVia (multi-cabang). Sekolah: ' + (user.value ? user.value.nama : '') + '. Kabari saya begitu fiturnya siap.');
     // === WhatsApp ke orang tua (link wa.me, tanpa API) ===
     function waNorm(hp){
       let h = String(hp||'').replace(/[^0-9]/g,'');
@@ -1559,7 +1560,7 @@ createApp({
         }
       }).catch(()=>{});
     });
-    return { API, loggedIn, user, demoOn, menuQuran, tingkatList, page, ekskulList, modalEkskul, formEkskul, tambahEkskul, saveEkskul, hapusEkskul, bukaAnggota, modalAnggota, ekskulAktif, anggotaList, anggotaBaru, addAnggota, updateNilaiEkskul, modalNaikKelas, naik, openNaikKelas, doNaikKelas, doLuluskan, loading, toast, toastErr, login, dash, siswa, nilai, hafalan, jadwal, spp, pengeluaran, agenda, pengumuman, users, watch, ref, computed,
+    return { API, loggedIn, user, demoOn, WA_SUPPORT_PLACEHOLDER, menuQuran, tingkatList, page, ekskulList, modalEkskul, formEkskul, tambahEkskul, saveEkskul, hapusEkskul, bukaAnggota, modalAnggota, ekskulAktif, anggotaList, anggotaBaru, addAnggota, updateNilaiEkskul, modalNaikKelas, naik, openNaikKelas, doNaikKelas, doLuluskan, loading, toast, toastErr, login, dash, siswa, nilai, hafalan, jadwal, spp, pengeluaran, agenda, pengumuman, users, watch, ref, computed,
       kodeRef, salinRef, tour, quickHafalan, kirimLaporanWA, resetWaliToken, waKwitansi, langganan, absSiswa, absGuru, keu, absTanggal, absKelas, absGTanggal, qSiswa, filterKelas, filterKelasN, filterMapel, filterKelasJ, sppBulan, sppStatus,
       pengUraian, pengKategori, pengJumlah, modalSiswa, modalNilai, modalHafalan, modalSPP, modalAgenda, modalPengumuman, modalJadwal, modalUser,
       formSiswa, formNilai, formHafalan, formSPP, formAgenda, formPengumuman, formJadwal, formUser, rapor, raporSiswa, raporTA, modalBulk, bulk,

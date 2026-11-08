@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"os"
 	"time"
@@ -17,7 +18,12 @@ var db *sql.DB
 func main() {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://simaka:simaka123@localhost:5432/simaka?sslmode=disable"
+		if os.Getenv("ALLOW_INSECURE_DEFAULT_DSN") == "1" {
+			dsn = "postgres://simaka:simaka123@localhost:5432/simaka?sslmode=disable"
+			log.Println("PERINGATAN: DATABASE_URL tidak di-set; memakai DSN default lokal yang TIDAK aman. Jangan dipakai di produksi.")
+		} else {
+			log.Fatal("DATABASE_URL wajib di-set, mis. postgres://user:pass@host:5432/namadb?sslmode=require (dev lokal: set ALLOW_INSECURE_DEFAULT_DSN=1)")
+		}
 	}
 	var err error
 	db, err = sql.Open("postgres", dsn)
@@ -36,7 +42,9 @@ func main() {
 	jwtSecret = sec
 	// rotasi log tiap 6 jam
 	go func() {
-		for range time.Tick(6 * time.Hour) {
+		t := time.NewTicker(6 * time.Hour)
+		defer t.Stop()
+		for range t.C {
 			rotateLog()
 		}
 	}()
@@ -66,29 +74,24 @@ func main() {
 		log.Fatal("seed: ", err)
 	}
 
+	frontDir = frontendDir()
 	mux := http.NewServeMux()
 	registerRoutes(mux)
-	mux.HandleFunc("GET /assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../frontend/"+strings.TrimPrefix(r.URL.Path, "/"))
-	}))
-	mux.HandleFunc("GET /icons/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../frontend/"+strings.TrimPrefix(r.URL.Path, "/"))
-	}))
-	mux.HandleFunc("GET /fonts/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../frontend/"+strings.TrimPrefix(r.URL.Path, "/"))
-	}))
+	mux.HandleFunc("GET /assets/", serveStatic)
+	mux.HandleFunc("GET /icons/", serveStatic)
+	mux.HandleFunc("GET /fonts/", serveStatic)
 	// Landing page promosi di /, aplikasi di /app/
 	mux.Handle("GET /{$}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../frontend/landing.html")
+		http.ServeFile(w, r, filepath.Join(frontDir, "landing.html"))
 	}))
 	mux.Handle("GET /app", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../frontend/index.html")
+		http.ServeFile(w, r, filepath.Join(frontDir, "index.html"))
 	}))
 	mux.Handle("GET /pitch", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../frontend/pitch.html")
+		http.ServeFile(w, r, filepath.Join(frontDir, "pitch.html"))
 	}))
 	mux.Handle("GET /app/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "../frontend/index.html")
+		http.ServeFile(w, r, filepath.Join(frontDir, "index.html"))
 	}))
 
 	port := os.Getenv("PORT")
@@ -96,13 +99,42 @@ func main() {
 		port = "8080"
 	}
 	srv := &http.Server{
-		Addr:         ":" + port,
-		Handler:      cors(limitBody(mux)),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:           ":" + port,
+		Handler:        cors(limitBody(mux)),
+		ReadTimeout:    15 * time.Second,
+		WriteTimeout:   5 * time.Minute, // ekspor ZIP bisa lama untuk data besar
+		IdleTimeout:    2 * time.Minute,
+		MaxHeaderBytes: 1 << 20,
 	}
 	fmt.Println("SchoolVia API running on :" + port)
 	log.Fatal(srv.ListenAndServe())
+}
+
+var frontDir string
+
+// frontendDir: lokasi frontend — dari env FRONTEND_DIR, lalu relatif terhadap executable
+// (deployment umum: binary di backend/, frontend di ../frontend), terakhir CWD.
+func frontendDir() string {
+	if d := os.Getenv("FRONTEND_DIR"); d != "" {
+		return d
+	}
+	if exe, err := os.Executable(); err == nil {
+		d := filepath.Join(filepath.Dir(exe), "..", "frontend")
+		if _, err := os.Stat(filepath.Join(d, "index.html")); err == nil {
+			return d
+		}
+	}
+	return "../frontend"
+}
+
+// serveStatic: sajikan file statis dari frontDir dengan penjagaan path traversal.
+func serveStatic(w http.ResponseWriter, r *http.Request) {
+	p := strings.TrimPrefix(r.URL.Path, "/")
+	if strings.Contains(p, "..") {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(frontDir, p))
 }
 
 // limitBody: batasi ukuran body request (1 MB, 6 MB untuk import) agar tidak habis memori.

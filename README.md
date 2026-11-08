@@ -109,6 +109,8 @@ sudo -u postgres psql -c "CREATE DATABASE simaka OWNER simaka;"
 git clone https://github.com/miqbalputra/free-edu.git
 cd free-edu/backend
 go build -o simaka .
+export DATABASE_URL='postgres://simaka:simaka123@localhost:5432/simaka?sslmode=disable'  # dev lokal saja; produksi pakai sslmode=require
+# dev lokal tanpa DATABASE_URL: set ALLOW_INSECURE_DEFAULT_DSN=1
 ./simaka
 ```
 
@@ -119,13 +121,17 @@ go build -o simaka .
 
 | Variabel | Default | Keterangan |
 |---|---|---|
-| `DATABASE_URL` | `postgres://simaka:simaka123@localhost/simaka` | Koneksi PostgreSQL |
+| `DATABASE_URL` | **wajib di-set** | Koneksi PostgreSQL, mis. `postgres://user:pass@host:5432/namadb?sslmode=require`. Dev lokal tanpa env ini: set `ALLOW_INSECURE_DEFAULT_DSN=1` |
 | `PORT` | `8080` | Port HTTP |
 | `SchoolVia_PUBLIC_URL` | `https://sistemflow.com` | URL publik untuk link WA |
 | `SEED_DEMO` | `0` | Bila `1`: seed akun demo (`kepala@simaka.id`/`kepala123`) & aktifkan `?demo=1` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Wajib bila `SEED_DEMO` tidak di-set: membuat akun kepala sekolah pertama pada instalasi baru |
 | `TRUSTED_PROXY` | `0` | Bila `1` (di belakang reverse proxy), rate-limit memakai IP terakhir dari `X-Forwarded-For` |
 | `COOKIE_SECURE` | `0` | Bila `1` (wajib di produksi HTTPS), cookie sesi `sv_session` diberi flag `Secure` |
+| `FRONTEND_DIR` | otomatis (relatif ke executable, lalu `../frontend`) | Lokasi direktori frontend yang disajikan server |
+| `ALLOW_INSECURE_DEFAULT_DSN` | `0` | Bila `1`, izinkan DSN default lokal tanpa password aman — **jangan dipakai di produksi** |
+
+> ⚠️ Sebelum go-live: ganti nomor WhatsApp placeholder `6281234567890` (README & `WA_SUPPORT_PLACEHOLDER` di `frontend/index.html`) dengan nomor resmi Anda.
 
 ### 3️⃣ Masuk
 
