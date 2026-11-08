@@ -4,3 +4,4 @@ backend/jwt_secret
 *.log
 node_modules/
 dist/
+/jwt_secret

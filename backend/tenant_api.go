@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -321,8 +322,19 @@ func handleNotifSPP(w http.ResponseWriter, r *http.Request) {
 		var nama, hp string
 		var jumlah float64
 		rows.Scan(&nama, &hp, &jumlah)
-		hp = "628" + strings.TrimPrefix(strings.TrimPrefix(hp, "08"), "62")
-		hp = strings.ReplaceAll(hp, "-", "")
+		hp = strings.Map(func(r rune) rune {
+			if r < '0' || r > '9' {
+				return -1
+			}
+			return r
+		}, hp)
+		hp = strings.TrimPrefix(hp, "0")
+		if strings.HasPrefix(hp, "8") {
+			hp = "62" + hp
+		}
+		if !strings.HasPrefix(hp, "62") || len(hp) < 10 {
+			continue // nomor tidak valid — lewati
+		}
 		msg := "Assalamualaikum Bapak/Ibu, kami informasikan bahwa SPP ananda " + nama +
 			" bulan " + bulan + " " + tahun + " sebesar Rp" + itoa(int(jumlah)) +
 			" di " + namaSekolah + " belum dibayarkan. Mohon pembayarannya. Terima kasih. 🙏"
@@ -332,8 +344,7 @@ func handleNotifSPP(w http.ResponseWriter, r *http.Request) {
 }
 
 func waEncode(s string) string {
-	replacer := strings.NewReplacer(" ", "%20", "\n", "%0A", ",", "%2C", "'", "%27")
-	return replacer.Replace(s)
+	return url.QueryEscape(s)
 }
 
 // ---------- PWA MANIFEST ----------
