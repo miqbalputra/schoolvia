@@ -125,6 +125,7 @@ go build -o simaka .
 | `SEED_DEMO` | `0` | Bila `1`: seed akun demo (`kepala@simaka.id`/`kepala123`) & aktifkan `?demo=1` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Wajib bila `SEED_DEMO` tidak di-set: membuat akun kepala sekolah pertama pada instalasi baru |
 | `TRUSTED_PROXY` | `0` | Bila `1` (di belakang reverse proxy), rate-limit memakai IP terakhir dari `X-Forwarded-For` |
+| `COOKIE_SECURE` | `0` | Bila `1` (wajib di produksi HTTPS), cookie sesi `sv_session` diberi flag `Secure` |
 
 ### 3️⃣ Masuk
 
