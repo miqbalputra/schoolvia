@@ -97,12 +97,24 @@ func main() {
 	}
 	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      cors(mux),
+		Handler:      cors(limitBody(mux)),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	fmt.Println("SchoolVia API running on :" + port)
 	log.Fatal(srv.ListenAndServe())
+}
+
+// limitBody: batasi ukuran body request (1 MB, 6 MB untuk import) agar tidak habis memori.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		max := int64(1 << 20)
+		if strings.HasPrefix(r.URL.Path, "/api/import/") {
+			max = 6 << 20
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, max)
+		next.ServeHTTP(w, r)
+	})
 }
 
 func cors(next http.Handler) http.Handler {

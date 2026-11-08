@@ -360,7 +360,13 @@ func sval(m map[string]interface{}, k string) string {
 }
 
 func handleCreateSiswa(w http.ResponseWriter, r *http.Request, c *Claims) {
-	if msg := cekKuota(c.SekolahID, "siswa"); msg != "" {
+	tx, err := db.Begin()
+	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	defer tx.Rollback()
+	if msg := cekKuota(tx, c.SekolahID, "siswa"); msg != "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(402)
 		json.NewEncoder(w).Encode(map[string]string{"error": msg})
@@ -372,9 +378,13 @@ func handleCreateSiswa(w http.ResponseWriter, r *http.Request, c *Claims) {
 		return
 	}
 	var id int
-	err = db.QueryRow(`INSERT INTO siswa (nis,nisn,nama,jk,kelas,tgl_lahir,alamat,nama_ortu,hp_ortu,sekolah_id) VALUES (NULLIF($1,''),NULLIF($2,''),$3,NULLIF($4,''),$5,NULLIF($6,'')::DATE,NULLIF($7,''),NULLIF($8,''),NULLIF($9,''),$10) RETURNING id`,
+	err = tx.QueryRow(`INSERT INTO siswa (nis,nisn,nama,jk,kelas,tgl_lahir,alamat,nama_ortu,hp_ortu,sekolah_id) VALUES (NULLIF($1,''),NULLIF($2,''),$3,NULLIF($4,''),$5,NULLIF($6,'')::DATE,NULLIF($7,''),NULLIF($8,''),NULLIF($9,''),$10) RETURNING id`,
 		sval(in, "nis"), sval(in, "nisn"), sval(in, "nama"), sval(in, "jk"), sval(in, "kelas"), sval(in, "tgl_lahir"), sval(in, "alamat"), sval(in, "nama_ortu"), sval(in, "hp_ortu"), c.SekolahID).Scan(&id)
 	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
 		jsonErr(w, 500, userErr(err))
 		return
 	}
@@ -524,10 +534,13 @@ func handleAbsenMasuk(w http.ResponseWriter, r *http.Request, c *Claims) {
 }
 
 func handleAbsenPulang(w http.ResponseWriter, r *http.Request, c *Claims) {
-	_, err := db.Exec(`INSERT INTO absensi_guru (guru_id,tanggal,jam_masuk,status) VALUES ($1,CURRENT_DATE,CURRENT_TIME,'hadir')
-		ON CONFLICT (guru_id,tanggal) DO UPDATE SET jam_pulang=CURRENT_TIME`, c.UserID)
+	res, err := db.Exec(`UPDATE absensi_guru SET jam_pulang=CURRENT_TIME WHERE guru_id=$1 AND tanggal=CURRENT_DATE AND jam_masuk IS NOT NULL`, c.UserID)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		jsonErr(w, 400, "Belum ada absen masuk hari ini — silakan absen masuk lebih dulu.")
 		return
 	}
 	respond(w, 200, map[string]string{"ok": "1"})
@@ -729,6 +742,21 @@ func handleGenerateSPP(w http.ResponseWriter, r *http.Request, c *Claims) {
 		jsonErr(w, 400, "Bulan dan tahun wajib")
 		return
 	}
+	validBulan := false
+	for _, b := range bulanID {
+		if b == in.Bulan {
+			validBulan = true
+			break
+		}
+	}
+	if !validBulan || len(in.Tahun) != 4 || !isDigits(in.Tahun) {
+		jsonErr(w, 400, "Bulan harus nama bulan Indonesia (mis. November) dan tahun 4 digit (mis. 2026)")
+		return
+	}
+	if in.Jumlah < 0 {
+		jsonErr(w, 400, "Jumlah tagihan tidak boleh negatif")
+		return
+	}
 	if in.Jumlah == 0 {
 		db.QueryRow(`SELECT COALESCE(spp_default,45000) FROM pengaturan WHERE id=$1`, c.SekolahID).Scan(&in.Jumlah)
 	}
@@ -774,9 +802,13 @@ func handleBayarSPP(w http.ResponseWriter, r *http.Request, c *Claims) {
 	if in.Metode == "" {
 		in.Metode = "tunai"
 	}
-	_, err := db.Exec(`UPDATE spp SET status='lunas', tgl_bayar=CURRENT_DATE, metode=$1, petugas_id=$2 WHERE id=$3 AND sekolah_id=$4`, in.Metode, c.UserID, id, c.SekolahID)
+	res, err := db.Exec(`UPDATE spp SET status='lunas', tgl_bayar=CURRENT_DATE, metode=$1, petugas_id=$2 WHERE id=$3 AND sekolah_id=$4`, in.Metode, c.UserID, id, c.SekolahID)
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		jsonErr(w, 404, "Tagihan tidak ditemukan")
 		return
 	}
 	respond(w, 200, map[string]string{"ok": "1"})
@@ -1013,7 +1045,13 @@ func handleListUsers(w http.ResponseWriter, r *http.Request, c *Claims) {
 }
 
 func handleCreateUser(w http.ResponseWriter, r *http.Request, c *Claims) {
-	if msg := cekKuota(c.SekolahID, "user"); msg != "" {
+	tx, err := db.Begin()
+	if err != nil {
+		jsonErr(w, 500, userErr(err))
+		return
+	}
+	defer tx.Rollback()
+	if msg := cekKuota(tx, c.SekolahID, "user"); msg != "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(402)
 		json.NewEncoder(w).Encode(map[string]string{"error": msg})
@@ -1040,10 +1078,14 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request, c *Claims) {
 		jsonErr(w, 403, "Hanya kepala sekolah yang dapat membuat akun kepala sekolah")
 		return
 	}
-	_, err := db.Exec(`INSERT INTO users (nama,email,password,role,nip,sekolah_id) VALUES ($1,$2,$3,$4,NULLIF($5,'-'),$6)`,
+	_, err = tx.Exec(`INSERT INTO users (nama,email,password,role,nip,sekolah_id) VALUES ($1,$2,$3,$4,NULLIF($5,'-'),$6)`,
 		in.Nama, strings.ToLower(in.Email), hashPass(in.Password), in.Role, in.NIP, c.SekolahID)
 	if err != nil {
 		jsonErr(w, 409, userErr(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		jsonErr(w, 500, userErr(err))
 		return
 	}
 	respond(w, 201, map[string]string{"ok": "1"})
