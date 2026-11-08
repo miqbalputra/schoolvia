@@ -1,0 +1,41 @@
+name: automerge
+# Auto-merge PR tanpa klik: jalan setiap workflow "CI" selesai, dan merge
+# PR (non-draft, dari branch repo ini sendiri) bila conclusion-nya success.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Merge PR yang check-nya sudah hijau
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const headBranch = github.event.workflow_run.head_branch;
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${headBranch}`,
+              state: 'open',
+            });
+            const pr = pulls[0];
+            if (!pr) { core.info(`Tidak ada PR terbuka untuk branch ${headBranch}`); return; }
+            if (pr.draft) { core.info(`PR #${pr.number} masih draft — dilewati`); return; }
+            if (pr.head.repo.full_name !== context.repo.full_name) { core.info('PR dari fork — dilewati demi keamanan'); return; }
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              merge_method: 'merge',
+            });
+            core.info(`PR #${pr.number} (${pr.title}) otomatis ter-merge`);
