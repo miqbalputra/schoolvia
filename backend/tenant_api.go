@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -103,19 +104,24 @@ func planMWClaims(fitur string, h func(http.ResponseWriter, *http.Request, *Clai
 	})
 }
 
-// cekKuota: return pesan error atau "" — untuk POST siswa/users
-func cekKuota(sekolahID int, jenis string) string {
+type dbQuerier interface {
+	QueryRow(query string, args ...interface{}) *sql.Row
+}
+
+// cekKuota: return pesan error atau "" — untuk POST siswa/users.
+// Menerima *sql.DB atau *sql.Tx agar bisa dipakai di dalam transaksi (anti race).
+func cekKuota(q dbQuerier, sekolahID int, jenis string) string {
 	lim := limitsFor(planOf(sekolahID))
 	if jenis == "siswa" && lim.MaxSiswa > 0 {
 		var n int
-		db.QueryRow(`SELECT COUNT(*) FROM siswa WHERE sekolah_id=$1 AND status='aktif'`, sekolahID).Scan(&n)
+		q.QueryRow(`SELECT COUNT(*) FROM siswa WHERE sekolah_id=$1 AND status='aktif'`, sekolahID).Scan(&n)
 		if n >= lim.MaxSiswa {
 			return "Paket Gratis dibatasi " + itoa(lim.MaxSiswa) + " siswa aktif. Upgrade ke paket Sekolah untuk lebih banyak."
 		}
 	}
 	if jenis == "user" && lim.MaxUser > 0 {
 		var n int
-		db.QueryRow(`SELECT COUNT(*) FROM users WHERE sekolah_id=$1`, sekolahID).Scan(&n)
+		q.QueryRow(`SELECT COUNT(*) FROM users WHERE sekolah_id=$1`, sekolahID).Scan(&n)
 		if n >= lim.MaxUser {
 			return "Paket Gratis dibatasi " + itoa(lim.MaxUser) + " pengguna. Upgrade ke paket Sekolah untuk lebih banyak."
 		}
@@ -220,10 +226,6 @@ func handleDaftar(w http.ResponseWriter, r *http.Request) {
 	}
 	err := db.QueryRow(`INSERT INTO sekolah (subdomain, nama, status, jenis, jenjang, kode_ref, dirujuk_oleh) VALUES ($1,$2,'trial',$3,$4,$5,NULLIF($6,'')) RETURNING id`,
 		in.Subdomain, in.NamaSekolah, jenis, jenjang, kodeRef, strings.TrimSpace(in.KodeRef)).Scan(&sid)
-	if err != nil {
-		// fallback tanpa kolom rujukan (instalasi lama)
-		err = db.QueryRow(`INSERT INTO sekolah (subdomain, nama, status) VALUES ($1,$2,'trial') RETURNING id`, in.Subdomain, in.NamaSekolah).Scan(&sid)
-	}
 	if err != nil {
 		jsonErr(w, 500, userErr(err))
 		return

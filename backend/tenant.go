@@ -31,6 +31,25 @@ func migrateTenants() error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE siswa DROP CONSTRAINT IF EXISTS siswa_nis_key`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_siswa_nis_per_sekolah ON siswa (sekolah_id, nis) WHERE nis IS NOT NULL`,
+		// Kolom sekolah untuk pivot P1/P2 (sebelumnya tidak ada → INSERT handleDaftar selalu gagal ke fallback)
+		`ALTER TABLE sekolah ADD COLUMN IF NOT EXISTS jenis TEXT NOT NULL DEFAULT 'islam' CHECK (jenis IN ('umum','islam'))`,
+		`ALTER TABLE sekolah ADD COLUMN IF NOT EXISTS jenjang TEXT DEFAULT ''`,
+		`ALTER TABLE sekolah ADD COLUMN IF NOT EXISTS kode_ref TEXT UNIQUE`,
+		`ALTER TABLE sekolah ADD COLUMN IF NOT EXISTS dirujuk_oleh TEXT`,
+		// Pengaturan per-sekolah: cabut CHECK(id=1) agar id=sekolah.id bisa dipakai
+		`ALTER TABLE pengaturan DROP CONSTRAINT IF EXISTS pengaturan_id_check`,
+		`ALTER TABLE pengaturan ADD COLUMN IF NOT EXISTS wa_pengasuh TEXT DEFAULT ''`,
+		// wali_kelas sempat tidak punya DDL → handleListWali/handleSetWali error 500
+		`CREATE TABLE IF NOT EXISTS wali_kelas (
+			id SERIAL PRIMARY KEY,
+			sekolah_id INT NOT NULL REFERENCES sekolah(id) ON DELETE CASCADE,
+			kelas TEXT NOT NULL,
+			user_id INT NOT NULL REFERENCES users(id),
+			UNIQUE(sekolah_id, kelas)
+		)`,
+		// wali_token: satu token per siswa — dedupe dulu lalu unique index (sebelumnya menumpuk & bisa multiple rows)
+		`DELETE FROM wali_token a USING wali_token b WHERE a.siswa_id=b.siswa_id AND a.sekolah_id=b.sekolah_id AND a.id < b.id`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_wali_token_siswa ON wali_token (siswa_id, sekolah_id)`,
 		`ALTER TABLE siswa ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
 		`ALTER TABLE pengumuman ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
 		`ALTER TABLE agenda ADD COLUMN IF NOT EXISTS sekolah_id INT DEFAULT 1`,
