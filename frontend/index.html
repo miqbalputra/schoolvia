@@ -75,6 +75,10 @@ body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;background:
 .brand small{opacity:.55;font-size:11px}
 .nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
 .nav button{display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--side-fg);padding:9px 13px;border-radius:var(--r-sm);cursor:pointer;font-size:13.5px;text-align:left;transition:.15s;font-family:inherit}
+.nav button svg{flex-shrink:0;opacity:.75}
+.nav button.active svg{opacity:1}
+.panel h3 svg{color:var(--primary);opacity:.9}
+.stat .ico svg{width:18px;height:18px;color:var(--muted)}
 .nav button:hover{background:rgba(255,255,255,.08);color:#fff}
 .nav button.active{background:var(--side-2);color:#fff;font-weight:600}
 .nav .sec{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;opacity:.45;padding:14px 13px 4px}
@@ -112,6 +116,7 @@ th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transf
 td{padding:11px 12px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg)}
+td:empty::before{content:'—';color:var(--muted)}
 .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:600}
 .b-hadir{background:var(--ok-soft);color:#047857}.b-sakit{background:#fef3c7;color:#92400e}
 .b-izin{background:#e0f2fe;color:#0369a1}.b-alpa{background:var(--danger-soft);color:#b91c1c}
@@ -198,9 +203,9 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
       <div class="tour-card">
         <div class="tour-n">Langkah {{tour}} dari 4</div>
         <template v-if="tour===1"><h3>🎓 Selamat datang di SchoolVia!</h3><p>Ini dashboard sekolah Anda. Semua menu ada di sidebar kiri (atau di bawah kalau pakai HP).</p></template>
-        <template v-else-if="tour===2"><h3>👨‍🎓 Mulai dari data siswa</h3><p>Buka menu "Siswa" lalu tekan "+ Tambah Siswa". Isi nama dan kelas — cukup itu dulu.</p></template>
-        <template v-else-if="tour===3"><h3>✅ Absen tiap hari, 2-3 ketukan</h3><p>Menu "Absensi" untuk kehadiran harian. Lembaga Islam juga bisa mencatat setoran hafalan di menu "Hafalan".</p></template>
-        <template v-else><h3>💰 Tagihan &amp; laporan otomatis</h3><p>Menu "SPP" membuat tagihan sekaligus, dan "Laporan Rekap" menyusun laporan bulanan siap cetak. Selamat mencoba! 🎉</p></template>
+        <template v-else-if="tour===2"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.5 3.4-5.5 6.5-5.5s5.8 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M17.5 14.7c2.2.7 3.6 2.4 4 5.3"/></svg> Mulai dari data siswa</h3><p>Buka menu "Siswa" lalu tekan "+ Tambah Siswa". Isi nama dan kelas — cukup itu dulu.</p></template>
+        <template v-else-if="tour===3"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg> Absen tiap hari, 2-3 ketukan</h3><p>Menu "Absensi" untuk kehadiran harian. Lembaga Islam juga bisa mencatat setoran hafalan di menu "Hafalan".</p></template>
+        <template v-else><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M16 15h2"/></svg> Tagihan &amp; laporan otomatis</h3><p>Menu "SPP" membuat tagihan sekaligus, dan "Laporan Rekap" menyusun laporan bulanan siap cetak. Selamat mencoba! 🎉</p></template>
         <div style="margin-top:16px;display:flex;gap:10px">
           <button class="btn" @click="tour = tour>=4 ? null : tour+1">{{ tour>=4 ? 'Mulai Pakai ✅' : 'Lanjut →' }}</button>
           <a v-if="tour>=4" class="btn sec" :href="waWaitlist" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center">🎁 Ajak lembaga lain — dapat 1 bulan gratis</a>
@@ -277,30 +282,30 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
     <aside class="sidebar">
       <div class="brand"><h1><span class="mk">🎓</span> SchoolVia</h1><small>{{ roleLabel }} · Manajemen Sekolah</small></div>
       <nav class="nav">
-        <button :class="{active:page==='dashboard'}" @click="page='dashboard'">🏠 Dashboard</button>
+        <button :class="{active:page==='dashboard'}" @click="page='dashboard'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></svg> Dashboard</button>
         <div class="sec">Kesiswaan</div>
-        <button :class="{active:page==='siswa'}" @click="page='siswa'">👨‍🎓 Data Siswa</button>
-        <button :class="{active:page==='absensi'}" @click="page='absensi'">✅ Absensi Siswa</button>
-        <button :class="{active:page==='nilai'}" @click="page='nilai'">📝 Nilai</button>
-        <button :class="{active:page==='rapor'}" @click="page='rapor'">📄 Rapor</button>
-        <button v-if="menuQuran" :class="{active:page==='hafalan'}" @click="page='hafalan'">📖 Hafalan</button>
-        <button :class="{active:page==='jadwal'}" @click="page='jadwal'">🗓️ Jadwal</button>
-        <button :class="{active:page==='ekskul'}" @click="page='ekskul'">⭐ Ekstrakurikuler</button>
+        <button :class="{active:page==='siswa'}" @click="page='siswa'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.5 3.4-5.5 6.5-5.5s5.8 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M17.5 14.7c2.2.7 3.6 2.4 4 5.3"/></svg> Data Siswa</button>
+        <button :class="{active:page==='absensi'}" @click="page='absensi'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg> Absensi Siswa</button>
+        <button :class="{active:page==='nilai'}" @click="page='nilai'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Nilai</button>
+        <button :class="{active:page==='rapor'}" @click="page='rapor'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h4"/></svg> Rapor</button>
+        <button v-if="menuQuran" :class="{active:page==='hafalan'}" @click="page='hafalan'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2Z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7Z"/></svg> Hafalan</button>
+        <button :class="{active:page==='jadwal'}" @click="page='jadwal'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M12 14v3l2 2"/></svg> Jadwal</button>
+        <button :class="{active:page==='ekskul'}" @click="page='ekskul'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.2L12 17.3 6.4 20.2l1.2-6.2L3 9.6l6.3-.8Z"/></svg> Ekstrakurikuler</button>
         <div class="sec">Kepegawaian &amp; Keuangan</div>
-        <button v-if="user.role!=='guru'" :class="{active:page==='absensi-guru'}" @click="page='absensi-guru'">🧑‍🏫 Absensi Guru</button>
-        <button :class="{active:page==='spp'}" @click="page='spp'">💰 SPP</button>
-        <button v-if="user.role!=='guru'" :class="{active:page==='wali'}" @click="page='wali'">🧑‍💼 Wali Kelas</button>
-        <button v-if="user.role!=='guru'" :class="{active:page==='keuangan'}" @click="page='keuangan'">🏦 Keuangan</button>
-        <button v-if="user.role!=='guru'" :class="{active:page==='rekap'}" @click="page='rekap'">📊 Laporan Rekap <span v-if="langganan.plan==='gratis'" title="Paket Sekolah/Yayasan" style="font-size:10px">🔒</span></button>
+        <button v-if="user.role!=='guru'" :class="{active:page==='absensi-guru'}" @click="page='absensi-guru'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.5 3.4-5.5 6.5-5.5s5.8 2 6.5 5.5"/><path d="m15.5 12 2 2 4-4"/></svg> Absensi Guru</button>
+        <button :class="{active:page==='spp'}" @click="page='spp'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M16 15h2"/></svg> SPP</button>
+        <button v-if="user.role!=='guru'" :class="{active:page==='wali'}" @click="page='wali'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.5 3.4-5.5 6.5-5.5s5.8 2 6.5 5.5"/><path d="M18 8v6M15 11h6"/></svg> Wali Kelas</button>
+        <button v-if="user.role!=='guru'" :class="{active:page==='keuangan'}" @click="page='keuangan'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-6 9 6"/><path d="M4 9v11M8 9v11M12 9v11M16 9v11M20 9v11"/><path d="M3 20h18"/></svg> Keuangan</button>
+        <button v-if="user.role!=='guru'" :class="{active:page==='rekap'}" @click="page='rekap'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Laporan Rekap <span v-if="langganan.plan==='gratis'" title="Paket Sekolah/Yayasan" style="font-size:10px">🔒</span></button>
         <div class="sec">Umum</div>
-        <button :class="{active:page==='agenda'}" @click="page='agenda'">📅 Agenda</button>
-        <button :class="{active:page==='pengumuman'}" @click="page='pengumuman'">📢 Pengumuman</button>
-        <button v-if="user.role==='kepala_sekolah' || user.role==='tu'" :class="{active:page==='users'}" @click="page='users'">⚙️ Pengguna</button>
-        <button v-if="user.role==='kepala_sekolah'" :class="{active:page==='log'}" @click="page='log'">🕵️ Log Aktivitas</button>
-        <button v-if="user.role!=='guru'" :class="{active:page==='pengaturan'}" @click="page='pengaturan'">🏫 Profil Sekolah</button>
-        <button :class="{active:page==='akun'}" @click="page='akun'">🔑 Akun Saya</button>
-        <button v-if="user.role==='platform'" :class="{active:page==='admin'}" @click="page='admin'">🛡️ Panel Admin</button>
-        <button :class="{active:page==='upgrade'}" @click="page='upgrade'">💎 Paket &amp; Upgrade</button>
+        <button :class="{active:page==='agenda'}" @click="page='agenda'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg> Agenda</button>
+        <button :class="{active:page==='pengumuman'}" @click="page='pengumuman'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></svg> Pengumuman</button>
+        <button v-if="user.role==='kepala_sekolah' || user.role==='tu'" :class="{active:page==='users'}" @click="page='users'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h0a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55h0a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v0a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"/></svg> Pengguna</button>
+        <button v-if="user.role==='kepala_sekolah'" :class="{active:page==='log'}" @click="page='log'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8L9 4l-3 8H2"/></svg> Log Aktivitas</button>
+        <button v-if="user.role!=='guru'" :class="{active:page==='pengaturan'}" @click="page='pengaturan'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01"/><path d="M10 21v-3h4v3"/></svg> Profil Sekolah</button>
+        <button :class="{active:page==='akun'}" @click="page='akun'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8.7-8.7"/><path d="m16 7 3 3"/></svg> Akun Saya</button>
+        <button v-if="user.role==='platform'" :class="{active:page==='admin'}" @click="page='admin'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10"/></svg> Panel Admin</button>
+        <button :class="{active:page==='upgrade'}" @click="page='upgrade'"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9Z"/><path d="M11 3 8 9l4 12 4-12-3-6"/><path d="M2 9h20"/></svg> Paket &amp; Upgrade</button>
       </nav>
       <div class="userbox">
         <div class="avatar">{{ initials }}</div>
@@ -343,10 +348,10 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
           <p>{{ greetSub }}</p>
         </div>
         <div class="stats">
-          <div class="stat"><span class="ico">👨‍🎓</span><small>Total Siswa Aktif</small><b>{{ dash.total_siswa || 0 }}</b></div>
-          <div class="stat blue"><span class="ico">✅</span><small>Kehadiran Hari Ini</small><b>{{ dash.hadir_hari_ini || 0 }}</b></div>
-          <div class="stat mint"><span class="ico">🏦</span><small>Saldo Kas (SPP Lunas)</small><b>{{ rp(dash.saldo) }}</b></div>
-          <div class="stat warn"><span class="ico">⏳</span><small>SPP Belum Lunas</small><b>{{ dash.spp_belum_lunas || 0 }}</b></div>
+          <div class="stat"><span class="ico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.5 3.4-5.5 6.5-5.5s5.8 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M17.5 14.7c2.2.7 3.6 2.4 4 5.3"/></svg></span><small>Total Siswa Aktif</small><b>{{ dash.total_siswa || 0 }}</b></div>
+          <div class="stat blue"><span class="ico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></span><small>Kehadiran Hari Ini</small><b>{{ dash.hadir_hari_ini || 0 }}</b></div>
+          <div class="stat mint"><span class="ico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-6 9 6"/><path d="M4 9v11M8 9v11M12 9v11M16 9v11M20 9v11"/><path d="M3 20h18"/></svg></span><small>Saldo Kas (SPP Lunas)</small><b>{{ rp(dash.saldo) }}</b></div>
+          <div class="stat warn"><span class="ico"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><small>SPP Belum Lunas</small><b>{{ dash.spp_belum_lunas || 0 }}</b></div>
         </div>
         <div class="grid2">
           <div class="panel"><h3>Siswa per Kelas</h3>
@@ -365,7 +370,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
       <!-- RAPOR -->
       <div v-if="page==='rapor'" class="panel">
-        <h3>📄 Cetak Rapor Siswa</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h4"/></svg> Cetak Rapor Siswa</h3>
         <div class="toolbar">
           <select v-model="raporSiswa" style="min-width:240px">
             <option :value="null">— Pilih Siswa —</option>
@@ -416,11 +421,11 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
           <button class="btn sec" @click="importOpen=true; importStep='pilih'">📥 Import Excel/CSV</button>
         </div>
         <table v-if="siswaData.length">
-          <tr><th>NIS</th><th>Nama</th><th>L/P</th><th>Kelas</th><th>Orang Tua</th><th>HP</th><th>Status</th><th></th></tr>
+          <tr><th>NIS</th><th>Nama</th><th>L/P</th><th>Kelas</th><th>Orang Tua</th><th>No. HP</th><th>Status</th><th></th></tr>
           <tr v-for="s in siswaData">
             <td>{{ s.nis }}</td><td><b>{{ s.nama }}</b></td><td>{{ s.jk }}</td><td>{{ s.kelas }}</td>
             <td>{{ s.nama_ortu }}</td><td>{{ s.hp_ortu }}</td><td><span class="badge" :class="s.status==='aktif'?'b-hadir':'b-baru'">{{ s.status }}</span></td>
-            <td><button class="btn sec sm" @click="openSiswa(s)">Edit</button> <button class="btn warn sm" @click="delSiswa(s)">Arsipkan</button>
+            <td><button class="btn sec sm" @click="openSiswa(s)">Edit</button> <button class="btn sec sm" @click="delSiswa(s)">Arsipkan</button>
               <a v-if="s.hp_ortu" class="btn sm" style="background:#25d366;text-decoration:none" :href="waOrtu(s)" target="_blank" title="Kirim WhatsApp ke orang tua">💬 WA</a></td>
           </tr>
         </table>
@@ -545,7 +550,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
               <a v-if="t.status==='lunas'" class="btn sm sec" :href="API+'/kwitansi/'+t.id" target="_blank">🧾 Kwitansi</a>
               <a v-if="t.status==='lunas' && t.hp" class="btn sm" style="background:#25d366;text-decoration:none" :href="waKwitansi(t)" target="_blank" title="Kirim kwitansi via WhatsApp">💬</a></td></tr>
         </table>
-        <div v-else class="empty">Belum ada tagihan SPP.<br><small>Tekan "⚡ Generate SPP" untuk membuat tagihan bulanan sekaligus.</small></div>
+        <div v-else class="empty">Belum ada tagihan SPP.<br><small>Tekan "⚙️ Generate Tagihan Bulan Baru" di atas untuk membuat tagihan bulanan sekaligus.</small></div>
       </div>
 
       <!-- KEUANGAN -->
@@ -576,7 +581,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
       <!-- LAPORAN REKAP -->
       <div v-if="page==='rekap'" class="panel">
-        <h3>📊 Laporan Rekap Bulanan</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> Laporan Rekap Bulanan</h3>
         <div class="toolbar">
           <input type="month" v-model="rekapBulan" style="max-width:200px">
           <button class="btn" @click="loadRekap">Tampilkan</button>
@@ -608,7 +613,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
       <!-- WALI KELAS -->
       <div v-if="page==='wali'" class="panel" style="max-width:640px">
-        <h3>🧑‍💼 Wali Kelas</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.8-4 3.9-6.5 7.5-6.5s6.7 2.5 7.5 6.5"/></svg> Wali Kelas</h3>
         <div class="toolbar">
           <select v-model="waliKelas" style="max-width:140px"><option v-for="k in kelasList">{{ k }}</option></select>
           <select v-model="waliUser" style="max-width:260px"><option v-for="u in waliCandidates" :value="u.id">{{ u.nama }} ({{ roleLabelOf(u.role) }})</option></select>
@@ -643,7 +648,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
       <!-- PENGATURAN SEKOLAH -->
       <div v-if="page==='pengaturan'" class="panel" style="max-width:640px">
-        <h3>🏫 Profil Sekolah</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01"/><path d="M10 21v-3h4v3"/></svg> Profil Sekolah</h3>
         <label>Nama Sekolah / Lembaga</label><input v-model="set.nama_sekolah">
         <div class="frow">
           <div><label>NPSN</label><input v-model="set.npsn"></div>
@@ -672,7 +677,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
       <!-- AKUN SAYA -->
       <div v-if="page==='akun'" class="panel" style="max-width:480px">
-        <h3>🔑 Ubah Password</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8.7-8.7"/><path d="m16 7 3 3"/></svg> Ubah Password</h3>
         <label>Password Lama</label><input type="password" v-model="pw.lama">
         <label>Password Baru (min. 6 karakter)</label><input type="password" v-model="pw.baru">
         <div style="margin-top:16px"><button class="btn" @click="savePw">Simpan Password Baru</button></div>
@@ -784,7 +789,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
       <!-- LOG AKTIVITAS -->
       <div v-if="page==='log'" class="panel">
-        <h3>🕵️ Log Aktivitas Terakhir</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8L9 4l-3 8H2"/></svg> Log Aktivitas Terakhir</h3>
         <table v-if="logs.length">
           <tr><th>Waktu</th><th>Pengguna</th><th>Aksi</th><th>Detail</th></tr>
           <tr v-for="l in logs"><td style="white-space:nowrap">{{ l.waktu.slice(0,19).replace('T',' ') }}</td><td><b>{{ l.user }}</b></td><td><span class="badge b-proses">{{ l.aksi }}</span></td><td>{{ l.detail }}</td></tr>
@@ -856,7 +861,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
       <div class="modal" style="max-width:640px">
         <!-- LANGKAH 1: pilih file -->
         <template v-if="importStep==='pilih'">
-          <h3>📥 Import Siswa dari Excel/CSV</h3>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h4"/></svg> Import Siswa dari Excel/CSV</h3>
           <p style="font-size:13.5px;opacity:.8;margin:8px 0 12px">Punya daftar siswa di Excel atau Google Sheets? Simpan sebagai file <b>CSV</b> (di Excel: File → Save As → CSV), lalu unggah di sini. SchoolVia akan mencocokkan kolomnya otomatis — nama dan kelas wajib ada.</p>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <input type="file" accept=".csv,text/csv" @change="importFile" style="font-size:13px">
@@ -889,7 +894,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
         <!-- LANGKAH 3: hasil -->
         <template v-else>
-          <h3>🎉 Selesai!</h3>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.2L12 17.3 6.4 20.2l1.2-6.2L3 9.6l6.3-.8Z"/></svg> Selesai!</h3>
           <div style="font-size:14.5px;line-height:2;margin:10px 0">
             ✅ <b>{{ importHasil.masuk }}</b> siswa masuk<br>
             <span v-if="importHasil.diperbaiki">🛠️ <b>{{ importHasil.diperbaiki }}</b> otomatis diperbaiki<br></span>
@@ -905,7 +910,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
     <div v-if="modalEkskul" class="modal-bg" @click.self="modalEkskul=false">
       <div class="modal" style="max-width:420px">
-        <h3>⭐ Ekskul Baru</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.2L12 17.3 6.4 20.2l1.2-6.2L3 9.6l6.3-.8Z"/></svg> Ekskul Baru</h3>
         <label>Nama Ekskul *</label><input v-model="formEkskul.nama" placeholder="mis. Pramuka">
         <div style="margin-top:12px;display:flex;gap:10px">
           <button class="btn" @click="saveEkskul">Simpan</button>
@@ -1054,7 +1059,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
     <div v-if="modalBulk" class="modal-bg" @click.self="modalBulk=false">
       <div class="modal" style="max-width:560px">
-        <h3>⚡ Input Nilai Massal</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Input Nilai Massal</h3>
         <div class="frow">
           <div><label>Kelas *</label>
             <select v-model="bulk.kelas" @change="loadBulkSiswa"><option value="">— Pilih —</option><option v-for="k in kelasList" :value="k">{{ k }}</option></select></div>
@@ -1081,7 +1086,7 @@ body.dark .badge{filter:saturate(.9) brightness(1.05)}
 
     <div v-if="modalWA" class="modal-bg" @click.self="modalWA=false">
       <div class="modal" style="max-width:600px">
-        <h3>💬 Pengingat WA — SPP Belum Lunas</h3>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></svg> Pengingat WA — SPP Belum Lunas</h3>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Klik tombol untuk membuka WhatsApp dengan pesan siap kirim ke orang tua.</p>
         <div style="max-height:340px;overflow-y:auto">
           <div v-for="(p,i) in waList" :key="i" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -1234,13 +1239,13 @@ createApp({
       return h;
     }
     function waOrtu(s){
-      const msg = 'Assalamualaikum Bapak/Ibu ' + (s.nama_ortu||'') + ', kami dari ' + (pengaturan.value.nama_sekolah||'sekolah') +
+      const msg = 'Assalamualaikum Bapak/Ibu ' + (s.nama_ortu||'') + ', kami dari ' + (set.value.nama_sekolah||'sekolah') +
         '. Ada informasi mengenai ananda ' + s.nama + '. Terima kasih. 🙏';
       return 'https://wa.me/' + waNorm(s.hp_ortu) + '?text=' + encodeURIComponent(msg);
     }
     function waTagihan(t){
       const msg = 'Assalamualaikum Bapak/Ibu, kami informasikan bahwa SPP ananda ' + t.siswa +
-        ' bulan ' + t.bulan + ' ' + t.tahun + ' sebesar ' + rp(t.jumlah) + ' di ' + (pengaturan.value.nama_sekolah||'sekolah') +
+        ' bulan ' + t.bulan + ' ' + t.tahun + ' sebesar ' + rp(t.jumlah) + ' di ' + (set.value.nama_sekolah||'sekolah') +
         ' belum dibayarkan. Mohon pembayarannya. Terima kasih. 🙏';
       return 'https://wa.me/' + waNorm(t.hp) + '?text=' + encodeURIComponent(msg);
     }
