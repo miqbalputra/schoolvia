@@ -21,7 +21,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const headBranch = github.event.workflow_run.head_branch;
+            const headBranch = context.payload.workflow_run.head_branch;
             const { data: pulls } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
